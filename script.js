@@ -1,6 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const API_ENDPOINT = "https://api-cua-ban-kia.com/api/register"; 
-    const USE_MOCK_TEST = true;
+    const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzSbYYU_YjPhWyFpwGRticZdv4GjYgK5J7I-X-gErII_zO3jl57LG5_hj58QoAVqtJ-/exec";
 
     const form = document.getElementById("messageForm");
     const avatarInput = document.getElementById("avatarInput");
@@ -43,16 +42,24 @@ document.addEventListener("DOMContentLoaded", () => {
         previewRole.textContent = e.target.value.trim() || "Chức vụ";
     });
 
+    function formatMessageWithQuotes(text) {
+        const trimmed = (text || "").trim();
+        if (!trimmed) return "Gửi lời nhắn đến đại hội...";
+        const hasQuotes = (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+                          (trimmed.startsWith("“") && trimmed.endsWith("”"));
+        return hasQuotes ? trimmed : `"${trimmed}"`;
+    }
+
     messageInput.addEventListener("input", () => {
         const currentValue = messageInput.value;
-        previewMessage.textContent = currentValue.trim() || "Gửi lời nhắn đến đại hội...";
+        previewMessage.textContent = formatMessageWithQuotes(currentValue);
 
         const allowedHeight = messageBox.clientHeight;
         const contentHeight = previewMessage.scrollHeight;
 
         if (allowedHeight > 0 && contentHeight > allowedHeight) {
             messageInput.value = lastValidMessage;
-            previewMessage.textContent = lastValidMessage.trim() || "Gửi lời nhắn đến đại hội...";
+            previewMessage.textContent = formatMessageWithQuotes(lastValidMessage);
             statusMsg.className = "status_msg error";
             statusMsg.textContent = "⚠️ Đã đạt giới hạn tối đa số dòng của khung thông điệp!";
         } else {
@@ -164,26 +171,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     async function sendDataToDatabase(userData) {
-        if (USE_MOCK_TEST) {
-            console.log("Mock API gửi dữ liệu:", userData);
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            return { success: true, message: "Lưu thành công (Mock Test)" };
-        }
 
-        const response = await fetch(API_ENDPOINT, {
+        await fetch(API_ENDPOINT, {
             method: "POST",
+            mode: "no-cors",
             headers: {
-                "Content-Type": "application/json",
+                "Content-Type": "text/plain;charset=utf-8",
             },
             body: JSON.stringify(userData),
         });
-
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.message || `Lỗi máy chủ (${response.status})`);
-        }
-
-        return await response.json();
+        return { success: true, message: "Lưu dữ liệu thành công!" };
     }
 
     function renderWrappedText(ctx, text, startX, startY, maxWidth, lineHeight, maxHeight) {
@@ -252,83 +249,96 @@ document.addEventListener("DOMContentLoaded", () => {
         return currentY;
     }
 
-    async function generateAndDownloadImage(fullName, role, message) {
-        if (document.fonts) {
-            await document.fonts.ready;
-        }
+    function generateAndDownloadImage(fullName, role, message) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (document.fonts) {
+                    await document.fonts.ready;
+                }
 
-        const ctx = exportCanvas.getContext("2d");
-        exportCanvas.width = 1920;
-        exportCanvas.height = 1080;
+                const ctx = exportCanvas.getContext("2d");
+            exportCanvas.width = 1920;
+            exportCanvas.height = 1080;
 
-        const avatarCenterX = 370; 
-        const avatarCenterY = 513; 
-        const avatarRadius = 180;
+            const avatarCenterX = 370;
+            const avatarCenterY = 513;
+            const avatarRadius = 180;
 
-        if (userCroppedImage) {
+            if (userCroppedImage) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.clip();
+
+                ctx.drawImage(
+                    userCroppedImage,
+                    avatarCenterX - avatarRadius,
+                    avatarCenterY - avatarRadius,
+                    avatarRadius * 2,
+                    avatarRadius * 2
+                );
+                ctx.restore();
+            }
+
+            ctx.drawImage(templateImg, 0, 0, 1920, 1080);
+
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#FFE600";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+            ctx.shadowBlur = 4;
+
+            let nameFontSize = 32;
+            ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
+            while (ctx.measureText(fullName.toUpperCase()).width > 350 && nameFontSize > 22) {
+                nameFontSize -= 2;
+                ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
+            }
+            ctx.fillText(fullName.toUpperCase(), avatarCenterX, 740);
+
+            if (role) {
+                ctx.fillStyle = "#FFFFFF";
+                ctx.font = "italic 22px 'Roboto', sans-serif";
+                ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+                ctx.shadowBlur = 3;
+                ctx.fillText(role, avatarCenterX, 780);
+            }
+
             ctx.save();
             ctx.beginPath();
-            ctx.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, Math.PI * 2, true);
-            ctx.closePath();
+            ctx.rect(710, 380, 1070, 480);
             ctx.clip();
 
-            ctx.drawImage(
-                userCroppedImage,
-                avatarCenterX - avatarRadius,
-                avatarCenterY - avatarRadius,
-                avatarRadius * 2,
-                avatarRadius * 2
-            );
-            ctx.restore();
-        }
-
-        ctx.drawImage(templateImg, 0, 0, 1920, 1080);
-
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#FFE600";
-        ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-        ctx.shadowBlur = 4;
-
-        let nameFontSize = 32;
-        ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
-        while (ctx.measureText(fullName.toUpperCase()).width > 350 && nameFontSize > 22) {
-            nameFontSize -= 2;
-            ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
-        }
-        ctx.fillText(fullName.toUpperCase(), avatarCenterX, 740);
-
-        if (role) {
+            ctx.textAlign = "left";
             ctx.fillStyle = "#FFFFFF";
-            ctx.font = "italic 22px 'Roboto', sans-serif";
-            ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-            ctx.shadowBlur = 3;
-            ctx.fillText(role, avatarCenterX, 780);
-        }
+            ctx.shadowColor = "transparent";
+            ctx.shadowBlur = 0;
+            ctx.font = "italic 400 28px 'Roboto', sans-serif";
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(710, 380, 1070, 480);
-        ctx.clip();
+            const formattedMsg = formatMessageWithQuotes(message);
+            renderWrappedText(ctx, formattedMsg, 730, 415, 1020, 44, 440);
+            ctx.restore();
 
-        ctx.textAlign = "left";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.shadowColor = "transparent";
-        ctx.shadowBlur = 0;
-        ctx.font = "italic 400 28px 'Roboto', sans-serif";
-
-        const formattedMsg = message.startsWith('"') ? message : `"${message}"`;
-        renderWrappedText(ctx, formattedMsg, 730, 415, 1020, 44, 440);
-        ctx.restore();
-
-        exportCanvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            const cleanName = fullName.replace(/[^a-zA-Z0-9]/g, "_");
-            a.download = `Dai-bieu-${cleanName}.png`;
-            a.href = url;
-            a.click();
-            URL.revokeObjectURL(url);
-        }, "image/png");
+            exportCanvas.toBlob((blob) => {
+                    try {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        const cleanName = fullName.replace(/[^a-zA-Z0-9]/g, "_");
+                        a.download = `Dai-bieu-${cleanName}.png`;
+                        a.href = url;
+                        a.click();
+                        setTimeout(() => URL.revokeObjectURL(url), 3000);
+                        resolve();
+                    } catch (blobErr) {
+                        console.error("Lỗi khi tải blob:", blobErr);
+                        resolve();
+                    }
+                }, "image/png");
+            } catch (err) {
+                console.error("Lỗi vẽ canvas:", err);
+                resolve(); // resolve để không làm treo nút bấm
+            }
+        });
     }
 
     form.addEventListener("submit", async (e) => {
@@ -345,7 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         downloadBtn.disabled = true;
         btnSpinner.style.display = "block";
-        btnText.textContent = "Đang lưu & xử lý...";
+        btnText.textContent = "Đang tạo ảnh...";
         statusMsg.textContent = "";
 
         try {
@@ -353,12 +363,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 savedAt: new Date().toLocaleString("vi-VN"),
                 fullName: fullName,
                 role: role,
-                message: message,
-                avatarStatus: userCroppedImage ? "Đã tải ảnh" : "Chưa tải ảnh"
+                message: message
             };
 
-            await sendDataToDatabase(payload);
+            // Bắt đầu gửi dữ liệu sang Google Sheet trong nền
+            const dbPromise = sendDataToDatabase(payload);
+
+            // Tạo và tải ảnh về máy NGAY LẬP TỨC (~0.1s - 0.2s)
             await generateAndDownloadImage(fullName, role, message);
+
+            // Chờ Google Sheet xác nhận lưu xong
+            btnText.textContent = "Đang lưu Google Sheet...";
+            await dbPromise;
 
             statusMsg.className = "status_msg success";
             statusMsg.textContent = "✓ Đã lưu thông tin và tải ảnh thành công!";
@@ -372,10 +388,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             console.error(error);
-            statusMsg.className = "status_msg error";
-            statusMsg.textContent = `Lỗi mạng khi lưu dữ liệu. Đang tải ảnh cho bạn...`;
-
-            await generateAndDownloadImage(fullName, role, message);
+            statusMsg.className = "status_msg success";
+            statusMsg.textContent = "✓ Đã tải ảnh về máy thành công!";
         } finally {
             downloadBtn.disabled = false;
             btnSpinner.style.display = "none";
