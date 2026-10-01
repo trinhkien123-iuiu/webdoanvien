@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const trimmed = (text || "").trim();
         if (!trimmed) return "Gửi lời nhắn đến đại hội...";
         const hasQuotes = (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-                          (trimmed.startsWith("“") && trimmed.endsWith("”"));
+            (trimmed.startsWith("“") && trimmed.endsWith("”"));
         return hasQuotes ? trimmed : `"${trimmed}"`;
     }
 
@@ -257,69 +257,69 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 const ctx = exportCanvas.getContext("2d");
-            exportCanvas.width = 1920;
-            exportCanvas.height = 1080;
+                exportCanvas.width = 1920;
+                exportCanvas.height = 1080;
 
-            const avatarCenterX = 370;
-            const avatarCenterY = 513;
-            const avatarRadius = 180;
+                const avatarCenterX = 370;
+                const avatarCenterY = 513;
+                const avatarRadius = 180;
 
-            if (userCroppedImage) {
+                if (userCroppedImage) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, Math.PI * 2, true);
+                    ctx.closePath();
+                    ctx.clip();
+
+                    ctx.drawImage(
+                        userCroppedImage,
+                        avatarCenterX - avatarRadius,
+                        avatarCenterY - avatarRadius,
+                        avatarRadius * 2,
+                        avatarRadius * 2
+                    );
+                    ctx.restore();
+                }
+
+                ctx.drawImage(templateImg, 0, 0, 1920, 1080);
+
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#FFE600";
+                ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+                ctx.shadowBlur = 4;
+
+                let nameFontSize = 32;
+                ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
+                while (ctx.measureText(fullName.toUpperCase()).width > 350 && nameFontSize > 22) {
+                    nameFontSize -= 2;
+                    ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
+                }
+                ctx.fillText(fullName.toUpperCase(), avatarCenterX, 740);
+
+                if (role) {
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.font = "italic 22px 'Roboto', sans-serif";
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+                    ctx.shadowBlur = 3;
+                    ctx.fillText(role, avatarCenterX, 780);
+                }
+
                 ctx.save();
                 ctx.beginPath();
-                ctx.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, Math.PI * 2, true);
-                ctx.closePath();
+                ctx.rect(710, 380, 1070, 480);
                 ctx.clip();
 
-                ctx.drawImage(
-                    userCroppedImage,
-                    avatarCenterX - avatarRadius,
-                    avatarCenterY - avatarRadius,
-                    avatarRadius * 2,
-                    avatarRadius * 2
-                );
-                ctx.restore();
-            }
-
-            ctx.drawImage(templateImg, 0, 0, 1920, 1080);
-
-            ctx.textAlign = "center";
-            ctx.fillStyle = "#FFE600";
-            ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-            ctx.shadowBlur = 4;
-
-            let nameFontSize = 32;
-            ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
-            while (ctx.measureText(fullName.toUpperCase()).width > 350 && nameFontSize > 22) {
-                nameFontSize -= 2;
-                ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
-            }
-            ctx.fillText(fullName.toUpperCase(), avatarCenterX, 740);
-
-            if (role) {
+                ctx.textAlign = "left";
                 ctx.fillStyle = "#FFFFFF";
-                ctx.font = "italic 22px 'Roboto', sans-serif";
-                ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-                ctx.shadowBlur = 3;
-                ctx.fillText(role, avatarCenterX, 780);
-            }
+                ctx.shadowColor = "transparent";
+                ctx.shadowBlur = 0;
+                ctx.font = "italic 400 28px 'Roboto', sans-serif";
 
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(710, 380, 1070, 480);
-            ctx.clip();
+                const formattedMsg = formatMessageWithQuotes(message);
+                renderWrappedText(ctx, formattedMsg, 730, 415, 1020, 44, 440);
+                ctx.restore();
 
-            ctx.textAlign = "left";
-            ctx.fillStyle = "#FFFFFF";
-            ctx.shadowColor = "transparent";
-            ctx.shadowBlur = 0;
-            ctx.font = "italic 400 28px 'Roboto', sans-serif";
-
-            const formattedMsg = formatMessageWithQuotes(message);
-            renderWrappedText(ctx, formattedMsg, 730, 415, 1020, 44, 440);
-            ctx.restore();
-
-            exportCanvas.toBlob((blob) => {
+                exportCanvas.toBlob((blob) => {
                     try {
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
@@ -341,8 +341,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    let isSubmitting = false;
+
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        // Ngăn bấm nhiều lần
+        if (isSubmitting) return;
 
         if (!userCroppedImage) {
             alert("Vui lòng chọn ảnh và căn chỉnh góc mặt trước khi tải về!");
@@ -353,9 +358,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const role = roleInput.value.trim();
         const message = messageInput.value.trim();
 
+        isSubmitting = true;
         downloadBtn.disabled = true;
         btnSpinner.style.display = "block";
-        btnText.textContent = "Đang tạo ảnh...";
+        btnText.textContent = "Đang tải ảnh...";
         statusMsg.textContent = "";
 
         try {
@@ -366,15 +372,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 message: message
             };
 
-            // Bắt đầu gửi dữ liệu sang Google Sheet trong nền
-            const dbPromise = sendDataToDatabase(payload);
+            // 1. Gửi ngầm dữ liệu lên Google Sheet trong nền
+            sendDataToDatabase(payload).catch((err) => console.warn("Lỗi lưu Sheet:", err));
 
-            // Tạo và tải ảnh về máy NGAY LẬP TỨC (~0.1s - 0.2s)
+            // 2. Tạo và tải ảnh về máy
             await generateAndDownloadImage(fullName, role, message);
-
-            // Chờ Google Sheet xác nhận lưu xong
-            btnText.textContent = "Đang lưu Google Sheet...";
-            await dbPromise;
 
             statusMsg.className = "status_msg success";
             statusMsg.textContent = "✓ Đã lưu thông tin và tải ảnh thành công!";
@@ -389,11 +391,12 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             console.error(error);
             statusMsg.className = "status_msg success";
-            statusMsg.textContent = "✓ Đã tải ảnh về máy thành công!";
+            statusMsg.textContent = "✓ Đã lưu thông tin và tải ảnh thành công!";
         } finally {
             downloadBtn.disabled = false;
             btnSpinner.style.display = "none";
             btnText.textContent = "Tải lời nhắn về";
+            isSubmitting = false;
         }
     });
 });
