@@ -1,200 +1,385 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const API_ENDPOINT = "https://api-cua-ban-kia.com/api/register"; 
+    const USE_MOCK_TEST = true;
+
     const form = document.getElementById("messageForm");
     const avatarInput = document.getElementById("avatarInput");
     const nameInput = document.getElementById("username");
     const roleInput = document.getElementById("role");
     const messageInput = document.getElementById("message");
+    const downloadBtn = document.getElementById("download");
+    const btnText = downloadBtn.querySelector(".btn_text");
+    const btnSpinner = document.getElementById("btnSpinner");
+    const statusMsg = document.getElementById("statusMsg");
 
+    const avatarPreview = document.getElementById("img_choosen");
+    const avatarPreviewWrapper = document.getElementById("avatarPreviewWrapper");
     const previewName = document.querySelector(".name_content");
     const previewRole = document.querySelector(".title_content");
     const previewMessage = document.querySelector(".message_content");
-    const avatarPreview = document.getElementById("img_choosen");
     const messageBox = document.querySelector(".message_box");
-    const templateImage = document.querySelector(".template_img");
-    const chosenImageWrapper = document.querySelector(".image_choosen");
+    const templateImg = document.getElementById("templateImg");
+    const exportCanvas = document.getElementById("exportCanvas");
 
-    const placeholderName = "Họ và tên";
-    const placeholderRole = "Chức vụ";
-    const messagePlaceholder = "Gửi lời nhắn đến đại hội...";
-    const messageSafetyPadding = 5;
+    const cropModal = document.getElementById("cropModal");
+    const cropperImage = document.getElementById("cropperImage");
+    const closeCropModal = document.getElementById("closeCropModal");
+    const cancelCropBtn = document.getElementById("cancelCropBtn");
+    const applyCropBtn = document.getElementById("applyCropBtn");
+    const zoomInBtn = document.getElementById("zoomInBtn");
+    const zoomOutBtn = document.getElementById("zoomOutBtn");
+    const rotateLeftBtn = document.getElementById("rotateLeftBtn");
+
+    let cropper = null;
+    let currentRawImageUrl = null;
+    let userCroppedImage = null;
     let lastValidMessage = "";
 
-    const syncText = (input, target, fallback) => {
-        const value = input.value.trim();
-        target.textContent = value || fallback;
-    };
+    nameInput.addEventListener("input", (e) => {
+        previewName.textContent = e.target.value.trim().toUpperCase() || "HỌ VÀ TÊN";
+    });
 
-    nameInput.addEventListener("input", () =>
-        syncText(nameInput, previewName, placeholderName)
-    );
-
-    roleInput.addEventListener("input", () =>
-        syncText(roleInput, previewRole, placeholderRole)
-    );
+    roleInput.addEventListener("input", (e) => {
+        previewRole.textContent = e.target.value.trim() || "Chức vụ";
+    });
 
     messageInput.addEventListener("input", () => {
         const currentValue = messageInput.value;
-        previewMessage.textContent = currentValue.trim() || messagePlaceholder;
+        previewMessage.textContent = currentValue.trim() || "Gửi lời nhắn đến đại hội...";
 
-        const allowedHeight = messageBox.clientHeight - messageSafetyPadding;
+        const allowedHeight = messageBox.clientHeight;
         const contentHeight = previewMessage.scrollHeight;
 
-        if (contentHeight > allowedHeight - 20) {
+        if (allowedHeight > 0 && contentHeight > allowedHeight) {
             messageInput.value = lastValidMessage;
-            previewMessage.textContent =
-                lastValidMessage.trim() || messagePlaceholder;
+            previewMessage.textContent = lastValidMessage.trim() || "Gửi lời nhắn đến đại hội...";
+            statusMsg.className = "status_msg error";
+            statusMsg.textContent = "⚠️ Đã đạt giới hạn tối đa số dòng của khung thông điệp!";
         } else {
             lastValidMessage = currentValue;
+            if (statusMsg.textContent.includes("giới hạn")) {
+                statusMsg.textContent = "";
+            }
         }
     });
 
-    avatarInput.addEventListener("change", (event) => {
-        const file = event.target.files && event.target.files[0];
+    function initCropper() {
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+
+        cropper = new Cropper(cropperImage, {
+            aspectRatio: 1,
+            viewMode: 1,
+            dragMode: "move",
+            autoCropArea: 0.9,
+            restore: false,
+            guides: false,
+            center: false,
+            highlight: false,
+            cropBoxMovable: false,
+            cropBoxResizable: false,
+            toggleDragModeOnDblclick: false,
+        });
+    }
+
+    function openCropper(imageSrc) {
+        currentRawImageUrl = imageSrc;
+        cropperImage.src = imageSrc;
+        cropModal.style.display = "flex";
+
+        if (cropperImage.complete) {
+            initCropper();
+        } else {
+            cropperImage.onload = () => {
+                initCropper();
+            };
+        }
+    }
+
+    function closeCropper() {
+        cropModal.style.display = "none";
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+    }
+
+    avatarInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const src = e.target && e.target.result;
-            if (typeof src === "string") {
-                avatarPreview.src = src;
-            }
+        reader.onload = (event) => {
+            openCropper(event.target.result);
         };
         reader.readAsDataURL(file);
     });
 
-    form.addEventListener("submit", (event) => {
-        event.preventDefault();
+    avatarPreviewWrapper.addEventListener("click", () => {
+        if (currentRawImageUrl) {
+            openCropper(currentRawImageUrl);
+        } else {
+            avatarInput.click();
+        }
     });
 
-    const responsiveOverlayState = {
-        baseCanvasWidth: 0,
-        image: {
-            width: 0,
-            height: 0,
-            border: 0,
-        },
-        message: {
-            width: 0,
-            height: 0,
-            paddingTop: 0,
-            paddingRight: 0,
-            paddingBottom: 0,
-            paddingLeft: 0,
-            fontSize: 0,
-            lineHeight: 0,
-        },
-    };
+    closeCropModal.addEventListener("click", closeCropper);
+    cancelCropBtn.addEventListener("click", closeCropper);
 
-    const cacheOverlayMetrics = () => {
-        if (!templateImage) return;
-        responsiveOverlayState.baseCanvasWidth =
-            templateImage.clientWidth || templateImage.naturalWidth || 0;
+    zoomInBtn.addEventListener("click", () => {
+        if (cropper) cropper.zoom(0.1);
+    });
 
-        if (!responsiveOverlayState.baseCanvasWidth) {
+    zoomOutBtn.addEventListener("click", () => {
+        if (cropper) cropper.zoom(-0.1);
+    });
+
+    rotateLeftBtn.addEventListener("click", () => {
+        if (cropper) cropper.rotate(-90);
+    });
+
+    applyCropBtn.addEventListener("click", () => {
+        if (!cropper) return;
+
+        const croppedCanvas = cropper.getCroppedCanvas({
+            width: 600,
+            height: 600,
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: "high",
+        });
+
+        const croppedDataUrl = croppedCanvas.toDataURL("image/png");
+
+        avatarPreview.src = croppedDataUrl;
+
+        const img = new Image();
+        img.onload = () => {
+            userCroppedImage = img;
+        };
+        img.src = croppedDataUrl;
+
+        closeCropper();
+    });
+
+    async function sendDataToDatabase(userData) {
+        if (USE_MOCK_TEST) {
+            console.log("Mock API gửi dữ liệu:", userData);
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            return { success: true, message: "Lưu thành công (Mock Test)" };
+        }
+
+        const response = await fetch(API_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(userData),
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || `Lỗi máy chủ (${response.status})`);
+        }
+
+        return await response.json();
+    }
+
+    function renderWrappedText(ctx, text, startX, startY, maxWidth, lineHeight, maxHeight) {
+        const paragraphs = text.split(/\r?\n/);
+        let currentY = startY;
+
+        for (let p = 0; p < paragraphs.length; p++) {
+            const paragraph = paragraphs[p];
+            if (paragraph.trim() === "") {
+                currentY += lineHeight * 0.7;
+                continue;
+            }
+
+            const words = paragraph.split(" ");
+            let line = "";
+
+            for (let w = 0; w < words.length; w++) {
+                let word = words[w];
+
+                if (ctx.measureText(word).width > maxWidth) {
+                    if (line.length > 0) {
+                        ctx.fillText(line, startX, currentY);
+                        currentY += lineHeight;
+                        line = "";
+                        if (maxHeight && (currentY - startY) > maxHeight) return currentY;
+                    }
+
+                    for (let c = 0; c < word.length; c++) {
+                        const char = word[c];
+                        if (ctx.measureText(line + char).width > maxWidth) {
+                            ctx.fillText(line, startX, currentY);
+                            currentY += lineHeight;
+                            line = char;
+                            if (maxHeight && (currentY - startY) > maxHeight) return currentY;
+                        } else {
+                            line += char;
+                        }
+                    }
+                    line += " ";
+                    continue;
+                }
+
+                const testLine = line + word + " ";
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && w > 0) {
+                    ctx.fillText(line, startX, currentY);
+                    line = word + " ";
+                    currentY += lineHeight;
+
+                    if (maxHeight && (currentY - startY) > maxHeight) {
+                        return currentY;
+                    }
+                } else {
+                    line = testLine;
+                }
+            }
+
+            if (line.trim().length > 0) {
+                if (maxHeight && (currentY - startY) > maxHeight) {
+                    return currentY;
+                }
+                ctx.fillText(line, startX, currentY);
+                currentY += lineHeight;
+            }
+        }
+        return currentY;
+    }
+
+    async function generateAndDownloadImage(fullName, role, message) {
+        if (document.fonts) {
+            await document.fonts.ready;
+        }
+
+        const ctx = exportCanvas.getContext("2d");
+        exportCanvas.width = 1920;
+        exportCanvas.height = 1080;
+
+        const avatarCenterX = 370; 
+        const avatarCenterY = 513; 
+        const avatarRadius = 180;
+
+        if (userCroppedImage) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.clip();
+
+            ctx.drawImage(
+                userCroppedImage,
+                avatarCenterX - avatarRadius,
+                avatarCenterY - avatarRadius,
+                avatarRadius * 2,
+                avatarRadius * 2
+            );
+            ctx.restore();
+        }
+
+        ctx.drawImage(templateImg, 0, 0, 1920, 1080);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#FFE600";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+        ctx.shadowBlur = 4;
+
+        let nameFontSize = 32;
+        ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
+        while (ctx.measureText(fullName.toUpperCase()).width > 350 && nameFontSize > 22) {
+            nameFontSize -= 2;
+            ctx.font = `bold ${nameFontSize}px 'Roboto', sans-serif`;
+        }
+        ctx.fillText(fullName.toUpperCase(), avatarCenterX, 740);
+
+        if (role) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "italic 22px 'Roboto', sans-serif";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+            ctx.shadowBlur = 3;
+            ctx.fillText(role, avatarCenterX, 780);
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(710, 380, 1070, 480);
+        ctx.clip();
+
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.font = "italic 400 28px 'Roboto', sans-serif";
+
+        const formattedMsg = message.startsWith('"') ? message : `"${message}"`;
+        renderWrappedText(ctx, formattedMsg, 730, 415, 1020, 44, 440);
+        ctx.restore();
+
+        exportCanvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const cleanName = fullName.replace(/[^a-zA-Z0-9]/g, "_");
+            a.download = `Dai-bieu-${cleanName}.png`;
+            a.href = url;
+            a.click();
+            URL.revokeObjectURL(url);
+        }, "image/png");
+    }
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        if (!userCroppedImage) {
+            alert("Vui lòng chọn ảnh và căn chỉnh góc mặt trước khi tải về!");
             return;
         }
 
-        const imageStyles = getComputedStyle(chosenImageWrapper);
-        responsiveOverlayState.image.width = chosenImageWrapper.offsetWidth;
-        responsiveOverlayState.image.height = chosenImageWrapper.offsetHeight;
-        responsiveOverlayState.image.border = parseFloat(
-            imageStyles.borderWidth || "0"
-        );
+        const fullName = nameInput.value.trim();
+        const role = roleInput.value.trim();
+        const message = messageInput.value.trim();
 
-        const messageStyles = getComputedStyle(messageBox);
-        responsiveOverlayState.message.width = messageBox.offsetWidth;
-        responsiveOverlayState.message.height = messageBox.offsetHeight;
-        responsiveOverlayState.message.paddingTop = parseFloat(
-            messageStyles.paddingTop || "0"
-        );
-        responsiveOverlayState.message.paddingRight = parseFloat(
-            messageStyles.paddingRight || "0"
-        );
-        responsiveOverlayState.message.paddingBottom = parseFloat(
-            messageStyles.paddingBottom || "0"
-        );
-        responsiveOverlayState.message.paddingLeft = parseFloat(
-            messageStyles.paddingLeft || "0"
-        );
+        downloadBtn.disabled = true;
+        btnSpinner.style.display = "block";
+        btnText.textContent = "Đang lưu & xử lý...";
+        statusMsg.textContent = "";
 
-        const messageContentStyles = getComputedStyle(previewMessage);
-        responsiveOverlayState.message.fontSize = parseFloat(
-            messageContentStyles.fontSize || "0"
-        );
+        try {
+            const payload = {
+                savedAt: new Date().toLocaleString("vi-VN"),
+                fullName: fullName,
+                role: role,
+                message: message,
+                avatarStatus: userCroppedImage ? "Đã tải ảnh" : "Chưa tải ảnh"
+            };
 
-        const parsedLineHeight = parseFloat(
-            messageContentStyles.lineHeight || "0"
-        );
-        responsiveOverlayState.message.lineHeight = Number.isNaN(parsedLineHeight)
-            ? responsiveOverlayState.message.fontSize * 1.5
-            : parsedLineHeight;
-    };
+            await sendDataToDatabase(payload);
+            await generateAndDownloadImage(fullName, role, message);
 
-    const scaleOverlays = () => {
-        if (!templateImage || !responsiveOverlayState.baseCanvasWidth) return;
-        const currentWidth = templateImage.clientWidth;
-        if (!currentWidth) return;
+            statusMsg.className = "status_msg success";
+            statusMsg.textContent = "✓ Đã lưu thông tin và tải ảnh thành công!";
 
-        const scale =
-            currentWidth / responsiveOverlayState.baseCanvasWidth;
+            if (typeof confetti === "function") {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+        } catch (error) {
+            console.error(error);
+            statusMsg.className = "status_msg error";
+            statusMsg.textContent = `Lỗi mạng khi lưu dữ liệu. Đang tải ảnh cho bạn...`;
 
-        chosenImageWrapper.style.width = `${
-            responsiveOverlayState.image.width * scale
-        }px`;
-        chosenImageWrapper.style.height = `${
-            responsiveOverlayState.image.height * scale
-        }px`;
-        chosenImageWrapper.style.borderWidth = `${
-            responsiveOverlayState.image.border * scale
-        }px`;
-
-        messageBox.style.width = `${
-            responsiveOverlayState.message.width * scale
-        }px`;
-        messageBox.style.height = `${
-            responsiveOverlayState.message.height * scale
-        }px`;
-        messageBox.style.paddingTop = `${
-            responsiveOverlayState.message.paddingTop * scale
-        }px`;
-        messageBox.style.paddingRight = `${
-            responsiveOverlayState.message.paddingRight * scale
-        }px`;
-        messageBox.style.paddingBottom = `${
-            responsiveOverlayState.message.paddingBottom * scale
-        }px`;
-        messageBox.style.paddingLeft = `${
-            responsiveOverlayState.message.paddingLeft * scale
-        }px`;
-
-        previewMessage.style.fontSize = `${
-            responsiveOverlayState.message.fontSize * scale
-        }px`;
-        previewMessage.style.lineHeight = `${
-            responsiveOverlayState.message.lineHeight * scale
-        }px`;
-    };
-
-    const initResponsiveOverlay = () => {
-        cacheOverlayMetrics();
-        scaleOverlays();
-    };
-
-    if (templateImage) {
-        const setupResponsiveBehavior = () => {
-            initResponsiveOverlay();
-
-            window.addEventListener("resize", () => {
-                window.requestAnimationFrame(scaleOverlays);
-            });
-        };
-
-        if (templateImage.complete) {
-            setupResponsiveBehavior();
-        } else {
-            templateImage.addEventListener("load", setupResponsiveBehavior, {
-                once: true,
-            });
+            await generateAndDownloadImage(fullName, role, message);
+        } finally {
+            downloadBtn.disabled = false;
+            btnSpinner.style.display = "none";
+            btnText.textContent = "Tải lời nhắn về";
         }
-    }
+    });
 });

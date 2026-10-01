@@ -1,18 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KỲ VỌNG GỬI ĐẠI HỘI LẦN THỨ XIX</title>
     <link rel="stylesheet" href="style.css">
-    <link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet'>
-    
+    <link href='https://fonts.googleapis.com/css?family=Roboto:wght@400;500;700&display=swap' rel='stylesheet'>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 </head>
 <body>
     <div class="background">
-        <header>
-            <h1>Chào mừng đại hội đại biểu đoàn TNCS Hồ Chí Minh tỉnh Hà Tĩnh lần thứ XIX, nhiệm kỳ 2025 - 2030</h1>
+        <header class="main_header">
+            <div class="header_badge">
+                <span class="badge_dot"></span>
+                <span>ĐOÀN TNCS HỒ CHÍ MINH TỈNH HÀ TĨNH</span>
+            </div>
+            <h1 class="header_title">KỲ VỌNG GỬI ĐẠI HỘI LẦN THỨ XIX</h1>
+            <p class="header_subtitle">Nhiệm kỳ 2025 - 2030 • <em>"Khát vọng - Tiên phong - Bản lĩnh - Đoàn kết - Sáng tạo - Phát triển"</em></p>
         </header>
+
         <div class="content">
             <section class="input_form">
                 <form id="messageForm">
@@ -24,24 +30,33 @@
                     </label>
 
                     <label style="width: 80px; margin-top: 10px;" for="username">Họ và tên</label>
-                    <input type="text" id="username" placeholder="Nhập họ và tên...">
+                    <input type="text" id="username" placeholder="Nhập họ và tên..." required>
 
                     <label style="width: 80px; margin-top: 10px;" for="role">Chức vụ</label>
                     <textarea id="role" placeholder="Chức vụ..."></textarea>
 
                     <label style="width: 170px; margin-top: 10px;" for="message">Gửi lời nhắn đến đại hội</label>
-                    <textarea id="message" placeholder="Hãy gửi thông điệp của bạn..."></textarea>  
+                    <textarea id="message" placeholder="Hãy gửi thông điệp của bạn..." required></textarea>  
 
-                    <button type="submit" id="download">Tải lời nhắn về</button>
+                    <button type="submit" id="download">
+                        <span class="btn_text">Tải lời nhắn về</span>
+                        <div class="spinner" id="btnSpinner" style="display: none;"></div>
+                    </button>
+                    <p id="statusMsg" class="status_msg"></p>
                 </form>
             </section>
 
             <section class="img_form">
                 <div class="frame_canvas">
-                    <img src="pics/thoong diep chao mung.zip - 2.png" alt="Khung thông điệp" class="template_img">
+                    <img src="pics/thoong diep chao mung.zip - 2.png" alt="Khung thông điệp" class="template_img" id="templateImg">
                     
-                    <div class="image_choosen">
+                    <div class="image_choosen" id="avatarPreviewWrapper" title="Nhấp vào để căn chỉnh lại góc mặt">
                         <img src="pics/placeholder.jpg" alt="Ảnh đại diện" id="img_choosen">
+                    </div>
+
+                    <div class="user_info_overlay">
+                        <p class="name_content">HỌ VÀ TÊN</p>
+                        <p class="title_content">Chức vụ</p>
                     </div>
 
                     <div class="message_box">
@@ -51,6 +66,35 @@
             </section>
         </div>
     </div>
+
+    <div id="cropModal" class="crop_modal" style="display: none;">
+        <div class="crop_modal_content">
+            <div class="crop_modal_header">
+                <h3>Căn chỉnh ảnh chân dung</h3>
+                <button type="button" id="closeCropModal" class="close_btn" title="Đóng">&times;</button>
+            </div>
+            <div class="crop_container">
+                <img id="cropperImage" src="" alt="Ảnh cần crop">
+            </div>
+            <p class="crop_hint">💡 Kéo ảnh hoặc lăn chuột/dùng 2 ngón tay để phóng to, thu nhỏ và di chuyển khuôn mặt vào đúng vòng tròn.</p>
+            <div class="crop_modal_footer">
+                <div class="crop_tools">
+                    <button type="button" id="zoomInBtn" class="btn_tool" title="Phóng to">➕ Phóng to</button>
+                    <button type="button" id="zoomOutBtn" class="btn_tool" title="Thu nhỏ">➖ Thu nhỏ</button>
+                    <button type="button" id="rotateLeftBtn" class="btn_tool" title="Xoay">↺ Xoay</button>
+                </div>
+                <div class="crop_actions">
+                    <button type="button" id="cancelCropBtn" class="btn_secondary">Hủy</button>
+                    <button type="button" id="applyCropBtn" class="btn_primary">Áp dụng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="exportCanvas" style="display: none;"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
