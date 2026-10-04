@@ -1,6 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
     const API_ENDPOINT = "https://api-cua-ban-kia.com/api/register"; 
     const USE_MOCK_TEST = true;
+    const STATS_DATA_KEY = "real_youth_union_stats";
+    const STATS_USERS_KEY = "real_youth_union_users";
 
     const UNITS = [
         "Đoàn TNCS Hồ Chí Minh UBND tỉnh",
@@ -106,9 +108,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const zoomOutBtn = document.getElementById("zoomOutBtn");
     const rotateLeftBtn = document.getElementById("rotateLeftBtn");
 
+    const statsSearchInput = document.getElementById("statsSearchInput");
+    const statsSortSelect = document.getElementById("statsSortSelect");
+    const statsTableBody = document.getElementById("statsTableBody");
+    const totalCertCountElem = document.getElementById("totalCertCount");
+    const topUnitNameElem = document.getElementById("topUnitName");
+    const filteredUnitCountElem = document.getElementById("filteredUnitCount");
+
     let cropper = null;
     let currentRawImageUrl = null;
     let userCroppedImage = null;
+    let currentSortMode = "name_asc";
 
     UNITS.forEach((unitName) => {
         const opt = document.createElement("option");
@@ -128,6 +138,146 @@ document.addEventListener("DOMContentLoaded", () => {
     branchInput.addEventListener("input", (e) => {
         previewBranch.textContent = e.target.value.trim() || "Chi đoàn Cán bộ Giảng viên";
     });
+
+    function loadRealStats() {
+        const stats = {};
+        UNITS.forEach((u) => {
+            stats[u] = 0;
+        });
+
+        const saved = localStorage.getItem(STATS_DATA_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                UNITS.forEach((u) => {
+                    if (typeof parsed[u] === "number") {
+                        stats[u] = parsed[u];
+                    }
+                });
+            } catch (e) {}
+        }
+        return stats;
+    }
+
+    function loadRealUsers() {
+        const saved = localStorage.getItem(STATS_USERS_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                return new Set(Array.isArray(parsed) ? parsed : []);
+            } catch (e) {}
+        }
+        return new Set();
+    }
+
+    function saveRealData(stats, usersSet) {
+        localStorage.setItem(STATS_DATA_KEY, JSON.stringify(stats));
+        localStorage.setItem(STATS_USERS_KEY, JSON.stringify(Array.from(usersSet)));
+    }
+
+    const realStats = loadRealStats();
+    const realUsersSet = loadRealUsers();
+
+    function renderStatsTable(filterText = "") {
+        if (!statsTableBody) return;
+
+        const keyword = filterText.toLowerCase().trim();
+        let list = UNITS.map((unit) => ({
+            unit: unit,
+            count: realStats[unit] || 0
+        }));
+
+        if (keyword) {
+            list = list.filter((item) => item.unit.toLowerCase().includes(keyword));
+        }
+
+        if (filteredUnitCountElem) {
+            filteredUnitCountElem.textContent = list.length;
+        }
+
+        const totalCount = Object.values(realStats).reduce((a, b) => a + b, 0);
+        if (totalCertCountElem) {
+            totalCertCountElem.textContent = totalCount.toLocaleString("vi-VN");
+        }
+
+        let maxUnit = null;
+        let maxVal = 0;
+        Object.entries(realStats).forEach(([u, count]) => {
+            if (count > maxVal) {
+                maxVal = count;
+                maxUnit = u;
+            }
+        });
+
+        if (topUnitNameElem) {
+            if (maxVal > 0 && maxUnit) {
+                topUnitNameElem.textContent = `${maxUnit} (${maxVal} lượt)`;
+            } else {
+                topUnitNameElem.textContent = "Chưa có dữ liệu";
+            }
+        }
+
+        list.sort((a, b) => {
+            if (currentSortMode === "name_asc") {
+                return a.unit.localeCompare(b.unit, "vi", { sensitivity: "base" });
+            } else if (currentSortMode === "name_desc") {
+                return b.unit.localeCompare(a.unit, "vi", { sensitivity: "base" });
+            } else if (currentSortMode === "count_desc") {
+                if (b.count !== a.count) return b.count - a.count;
+                return a.unit.localeCompare(b.unit, "vi", { sensitivity: "base" });
+            } else if (currentSortMode === "count_asc") {
+                if (a.count !== b.count) return a.count - b.count;
+                return a.unit.localeCompare(b.unit, "vi", { sensitivity: "base" });
+            }
+            return 0;
+        });
+
+        statsTableBody.innerHTML = "";
+
+        if (list.length === 0) {
+            statsTableBody.innerHTML = `<tr><td colspan="4" class="table_empty_row">Không tìm thấy đơn vị phù hợp với từ khóa "${filterText}".</td></tr>`;
+            return;
+        }
+
+        list.forEach((item, index) => {
+            const row = document.createElement("tr");
+            if (item.count > 0) row.classList.add("has_downloads");
+
+            let pillClass = "count_pill zero";
+            if (item.count > 0) {
+                pillClass = (item.count === maxVal && maxVal > 0) ? "count_pill leader" : "count_pill active";
+            }
+
+            const percent = maxVal > 0 ? Math.round((item.count / maxVal) * 100) : 0;
+
+            row.innerHTML = `
+                <td class="col_stt">${index + 1}</td>
+                <td class="col_unit">${item.unit}</td>
+                <td class="col_count"><span class="${pillClass}">${item.count} lượt</span></td>
+                <td class="col_progress">
+                    <div class="table_progress_track">
+                        <div class="table_progress_fill" style="width: ${percent}%;"></div>
+                    </div>
+                </td>
+            `;
+            statsTableBody.appendChild(row);
+        });
+    }
+
+    renderStatsTable();
+
+    if (statsSearchInput) {
+        statsSearchInput.addEventListener("input", (e) => {
+            renderStatsTable(e.target.value);
+        });
+    }
+
+    if (statsSortSelect) {
+        statsSortSelect.addEventListener("change", (e) => {
+            currentSortMode = e.target.value;
+            renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
+        });
+    }
 
     function initCropper() {
         if (cropper) {
@@ -337,24 +487,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         ctx.fillStyle = "#1E40AF";
         ctx.font = "800 28px 'Montserrat', sans-serif";
-        ctx.fillText("ĐOÀN TNCS HỒ CHÍ MINH TỈNH HÀ TĨNH", 960, 175);
+        ctx.fillText("ĐOÀN TNCS HỒ CHÍ MINH TỈNH HÀ TĨNH", 960, 160);
 
         ctx.fillStyle = "#B91C1C";
         ctx.font = "900 84px 'Playfair Display', serif";
-        ctx.fillText("GIẤY CHỨNG NHẬN", 960, 265);
+        ctx.fillText("GIẤY CHỨNG NHẬN", 960, 270);
 
         ctx.strokeStyle = "#D4AF37";
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(960 - 160, 295);
-        ctx.lineTo(960 - 25, 295);
-        ctx.moveTo(960 + 25, 295);
-        ctx.lineTo(960 + 160, 295);
+        ctx.moveTo(960 - 160, 300);
+        ctx.lineTo(960 - 25, 300);
+        ctx.moveTo(960 + 25, 300);
+        ctx.lineTo(960 + 160, 300);
         ctx.stroke();
 
         ctx.fillStyle = "#D4AF37";
         ctx.font = "700 22px 'Montserrat', sans-serif";
-        ctx.fillText("★", 960, 302);
+        ctx.fillText("★", 960, 307);
 
         const avatarCenterX = 960;
         const avatarCenterY = 460;
@@ -483,8 +633,24 @@ document.addEventListener("DOMContentLoaded", () => {
             await sendDataToDatabase(payload);
             await generateAndDownloadCertificate(fullName, unit, youthUnionBranch);
 
-            statusMsg.className = "status_msg success";
-            statusMsg.textContent = "✓ Cấp và tải giấy chứng nhận thành công!";
+            const cleanFullName = fullName.trim().toLowerCase().replace(/\s+/g, " ");
+            const cleanUnit = unit.trim().toLowerCase();
+            const cleanBranch = youthUnionBranch.trim().toLowerCase().replace(/\s+/g, " ");
+            const userFingerprint = `${cleanFullName}|${cleanUnit}|${cleanBranch}`;
+            const isDuplicate = realUsersSet.has(userFingerprint);
+
+            if (!isDuplicate) {
+                realUsersSet.add(userFingerprint);
+                realStats[unit] = (realStats[unit] || 0) + 1;
+                saveRealData(realStats, realUsersSet);
+                renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
+
+                statusMsg.className = "status_msg success";
+                statusMsg.textContent = `✓ Cấp và tải giấy chứng nhận thành công! (+1 lượt tham gia cho ${unit})`;
+            } else {
+                statusMsg.className = "status_msg success";
+                statusMsg.textContent = "✓ Tải giấy chứng nhận thành công! (Lưu ý: Bạn đã hoàn thành trước đó nên hệ thống không tính thêm lượt trùng)";
+            }
 
             if (typeof confetti === "function") {
                 confetti({

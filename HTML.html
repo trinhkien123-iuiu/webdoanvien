@@ -22,48 +22,30 @@
         <div class="content">
             <section class="input_form_card">
                 <div class="card_header">
-                    <div class="cert_icon_box">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <circle cx="12" cy="18" r="3" fill="#F59E0B" stroke="#D97706"></circle>
-                        </svg>
-                    </div>
-                    <h2 class="card_title">Điền thông tin cấp giấy chứng nhận</h2>
+                    <h2 class="card_title">Thông tin cấp giấy chứng nhận</h2>
                 </div>
 
                 <form id="certificateForm">
                     <div class="form_group">
-                        <label class="field_label">
-                            <span class="field_icon">📷</span>
-                            <span>Ảnh đại biểu / Chân dung:</span>
-                        </label>
+                        <label class="field_label">Ảnh đại biểu / Chân dung:</label>
                         <div class="avatar_picker_row">
                             <label for="avatarInput" class="avatar_picker_btn">
                                 <span>Chọn ảnh chân dung</span>
                                 <input type="file" id="avatarInput" accept="image/*" hidden>
                             </label>
                             <button type="button" id="recropBtn" class="recrop_btn" style="display: none;">
-                                ✂️ Chỉnh góc mặt
+                                Chỉnh góc mặt
                             </button>
                         </div>
                     </div>
 
                     <div class="form_group">
-                        <label for="username" class="field_label">
-                            <span class="field_icon">👤</span>
-                            <span>Họ và tên:</span>
-                        </label>
+                        <label for="username" class="field_label">Họ và tên:</label>
                         <input type="text" id="username" class="form_input" placeholder="Nhập họ và tên của bạn" required autocomplete="name">
                     </div>
 
                     <div class="form_group">
-                        <label for="unit" class="field_label">
-                            <span class="field_icon">📍</span>
-                            <span>ĐỊA PHƯƠNG/ĐƠN VỊ:</span>
-                        </label>
+                        <label for="unit" class="field_label">Địa phương / Đơn vị:</label>
                         <div class="select_wrapper">
                             <select id="unit" class="form_select" required>
                                 <option value="">Vui lòng chọn đơn vị</option>
@@ -73,16 +55,12 @@
                     </div>
 
                     <div class="form_group">
-                        <label for="youthUnionBranch" class="field_label">
-                            <span class="field_icon">👥</span>
-                            <span>Tổ chức đoàn nơi tham gia sinh hoạt:</span>
-                        </label>
+                        <label for="youthUnionBranch" class="field_label">Tổ chức đoàn nơi tham gia sinh hoạt:</label>
                         <small class="field_hint">(Ghi rõ chi đoàn + tên đơn vị tổ chức đoàn)</small>
                         <textarea id="youthUnionBranch" class="form_textarea" rows="2" placeholder="Nhập thông tin tổ chức đoàn..." required></textarea>
                     </div>
 
                     <button type="submit" id="downloadBtn" class="submit_action_btn">
-                        <span class="btn_icon">📥</span>
                         <span class="btn_text">Tải ảnh về</span>
                         <div class="spinner" id="btnSpinner" style="display: none;"></div>
                     </button>
@@ -136,6 +114,71 @@
                 </div>
             </section>
         </div>
+
+        <section class="stats_section" id="statsSection">
+            <div class="stats_header">
+                <div class="stats_badge">
+                    <span class="stats_badge_dot"></span>
+                    <span>DỮ LIỆU ĐỒNG BỘ THỰC TẾ</span>
+                </div>
+                <h2 class="stats_heading">Bảng thống kê số lượng theo Địa phương / Đơn vị</h2>
+                <p class="stats_desc">Bảng theo dõi số lượt tải chứng nhận thực tế (tự động nhận diện và không tính trùng lặp)</p>
+            </div>
+
+            <div class="stats_summary_grid">
+                <div class="summary_box">
+                    <div class="summary_icon">👥</div>
+                    <div class="summary_details">
+                        <span class="summary_value" id="totalCertCount">0</span>
+                        <span class="summary_title">Tổng lượt tải chứng nhận</span>
+                    </div>
+                </div>
+
+                <div class="summary_box summary_lead">
+                    <div class="summary_icon">🏆</div>
+                    <div class="summary_details">
+                        <span class="summary_value" id="topUnitName">Chưa có dữ liệu</span>
+                        <span class="summary_title">Đơn vị dẫn đầu</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats_controls">
+                <div class="search_wrapper">
+                    <span class="search_icon">🔍</span>
+                    <input type="text" id="statsSearchInput" class="stats_search_input" placeholder="Tìm kiếm địa phương, đơn vị...">
+                </div>
+
+                <div class="sort_wrapper">
+                    <span class="sort_icon">⇅</span>
+                    <select id="statsSortSelect" class="stats_sort_select">
+                        <option value="name_asc">Tên A ➔ Z</option>
+                        <option value="name_desc">Tên Z ➔ A</option>
+                        <option value="count_desc">Lọc theo nhiều nhất</option>
+                        <option value="count_asc">Lọc theo ít nhất</option>
+                    </select>
+                </div>
+
+                <div class="stats_count_badge">
+                    <span id="filteredUnitCount">74</span>/74 Đơn vị
+                </div>
+            </div>
+
+            <div class="stats_table_wrapper">
+                <table class="stats_table">
+                    <thead>
+                        <tr>
+                            <th class="col_stt">STT</th>
+                            <th class="col_unit">Địa phương / Đơn vị</th>
+                            <th class="col_count">Số lượt</th>
+                            <th class="col_progress">Tiến độ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="statsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 
     <div id="cropModal" class="crop_modal" style="display: none;">
@@ -147,12 +190,12 @@
             <div class="crop_container">
                 <img id="cropperImage" src="" alt="Ảnh cần crop">
             </div>
-            <p class="crop_hint">💡 Kéo ảnh hoặc lăn chuột/dùng 2 ngón tay để phóng to, thu nhỏ và di chuyển khuôn mặt vào đúng vòng tròn.</p>
+            <p class="crop_hint">Kéo ảnh hoặc dùng con lăn chuột / 2 ngón tay để phóng to, thu nhỏ và di chuyển khuôn mặt vào đúng vòng tròn.</p>
             <div class="crop_modal_footer">
                 <div class="crop_tools">
-                    <button type="button" id="zoomInBtn" class="btn_tool" title="Phóng to">➕ Phóng to</button>
-                    <button type="button" id="zoomOutBtn" class="btn_tool" title="Thu nhỏ">➖ Thu nhỏ</button>
-                    <button type="button" id="rotateLeftBtn" class="btn_tool" title="Xoay">↺ Xoay</button>
+                    <button type="button" id="zoomInBtn" class="btn_tool" title="Phóng to">Phóng to</button>
+                    <button type="button" id="zoomOutBtn" class="btn_tool" title="Thu nhỏ">Thu nhỏ</button>
+                    <button type="button" id="rotateLeftBtn" class="btn_tool" title="Xoay">Xoay ảnh</button>
                 </div>
                 <div class="crop_actions">
                     <button type="button" id="cancelCropBtn" class="btn_secondary">Hủy</button>
