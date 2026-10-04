@@ -2,10 +2,10 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KỲ VỌNG GỬI ĐẠI HỘI LẦN THỨ XIX</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yêu Tổ Quốc bằng Hành động số</title>
     <link rel="stylesheet" href="style.css">
-    <link href='https://fonts.googleapis.com/css?family=Roboto:wght@400;500;700&display=swap' rel='stylesheet'>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 </head>
 <body>
@@ -15,52 +15,123 @@
                 <span class="badge_dot"></span>
                 <span>ĐOÀN TNCS HỒ CHÍ MINH TỈNH HÀ TĨNH</span>
             </div>
-            <h1 class="header_title">KỲ VỌNG GỬI ĐẠI HỘI LẦN THỨ XIX</h1>
-            <p class="header_subtitle">Nhiệm kỳ 2025 - 2030 • <em>"Khát vọng - Tiên phong - Bản lĩnh - Đoàn kết - Sáng tạo - Phát triển"</em></p>
+            <h1 class="header_title">Yêu Tổ Quốc bằng Hành động số</h1>
+            <p class="header_subtitle">Đại hội đại biểu Đoàn TNCS Hồ Chí Minh tỉnh Hà Tĩnh lần thứ XIX, nhiệm kỳ 2025 - 2030</p>
         </header>
 
         <div class="content">
-            <section class="input_form">
-                <form id="messageForm">
-                    <p class="form_title">Tạo thông điệp</p>
+            <section class="input_form_card">
+                <div class="card_header">
+                    <div class="cert_icon_box">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <circle cx="12" cy="18" r="3" fill="#F59E0B" stroke="#D97706"></circle>
+                        </svg>
+                    </div>
+                    <h2 class="card_title">Điền thông tin cấp giấy chứng nhận</h2>
+                </div>
 
-                    <label for="avatarInput" class="upload_label">
-                        <span>Chọn ảnh</span>
-                        <input type="file" id="avatarInput" accept="image/*" hidden>
-                    </label>
+                <form id="certificateForm">
+                    <div class="form_group">
+                        <label class="field_label">
+                            <span class="field_icon">📷</span>
+                            <span>Ảnh đại biểu / Chân dung:</span>
+                        </label>
+                        <div class="avatar_picker_row">
+                            <label for="avatarInput" class="avatar_picker_btn">
+                                <span>Chọn ảnh chân dung</span>
+                                <input type="file" id="avatarInput" accept="image/*" hidden>
+                            </label>
+                            <button type="button" id="recropBtn" class="recrop_btn" style="display: none;">
+                                ✂️ Chỉnh góc mặt
+                            </button>
+                        </div>
+                    </div>
 
-                    <label style="width: 80px; margin-top: 10px;" for="username">Họ và tên</label>
-                    <input type="text" id="username" placeholder="Nhập họ và tên..." required>
+                    <div class="form_group">
+                        <label for="username" class="field_label">
+                            <span class="field_icon">👤</span>
+                            <span>Họ và tên:</span>
+                        </label>
+                        <input type="text" id="username" class="form_input" placeholder="Nhập họ và tên của bạn" required autocomplete="name">
+                    </div>
 
-                    <label style="width: 80px; margin-top: 10px;" for="role">Chức vụ</label>
-                    <textarea id="role" placeholder="Chức vụ..."></textarea>
+                    <div class="form_group">
+                        <label for="unit" class="field_label">
+                            <span class="field_icon">📍</span>
+                            <span>ĐỊA PHƯƠNG/ĐƠN VỊ:</span>
+                        </label>
+                        <div class="select_wrapper">
+                            <select id="unit" class="form_select" required>
+                                <option value="">Vui lòng chọn đơn vị</option>
+                            </select>
+                        </div>
+                        <small class="field_hint">(Danh sách các đơn vị theo Tỉnh Đoàn)</small>
+                    </div>
 
-                    <label style="width: 170px; margin-top: 10px;" for="message">Gửi lời nhắn đến đại hội</label>
-                    <textarea id="message" placeholder="Hãy gửi thông điệp của bạn..." required></textarea>  
+                    <div class="form_group">
+                        <label for="youthUnionBranch" class="field_label">
+                            <span class="field_icon">👥</span>
+                            <span>Tổ chức đoàn nơi tham gia sinh hoạt:</span>
+                        </label>
+                        <small class="field_hint">(Ghi rõ chi đoàn + tên đơn vị tổ chức đoàn)</small>
+                        <textarea id="youthUnionBranch" class="form_textarea" rows="2" placeholder="Nhập thông tin tổ chức đoàn..." required></textarea>
+                    </div>
 
-                    <button type="submit" id="download">
-                        <span class="btn_text">Tải lời nhắn về</span>
+                    <button type="submit" id="downloadBtn" class="submit_action_btn">
+                        <span class="btn_icon">📥</span>
+                        <span class="btn_text">Tải ảnh về</span>
                         <div class="spinner" id="btnSpinner" style="display: none;"></div>
                     </button>
                     <p id="statusMsg" class="status_msg"></p>
                 </form>
             </section>
 
-            <section class="img_form">
-                <div class="frame_canvas">
-                    <img src="pics/thoong diep chao mung.zip - 2.png" alt="Khung thông điệp" class="template_img" id="templateImg">
-                    
-                    <div class="image_choosen" id="avatarPreviewWrapper" title="Nhấp vào để căn chỉnh lại góc mặt">
-                        <img src="pics/placeholder.jpg" alt="Ảnh đại diện" id="img_choosen">
-                    </div>
+            <section class="certificate_view_section">
+                <div class="certificate_preview_card" id="certificatePreviewWrapper">
+                    <div class="cert_border_outer">
+                        <div class="cert_border_inner">
+                            <div class="cert_corner cert_corner_tl"></div>
+                            <div class="cert_corner cert_corner_tr"></div>
+                            <div class="cert_corner cert_corner_bl"></div>
+                            <div class="cert_corner cert_corner_br"></div>
 
-                    <div class="user_info_overlay">
-                        <p class="name_content">HỌ VÀ TÊN</p>
-                        <p class="title_content">Chức vụ</p>
-                    </div>
+                            <div class="cert_header">
+                                <div class="cert_top_title">ĐOÀN TNCS HỒ CHÍ MINH TỈNH HÀ TĨNH</div>
+                                <div class="cert_main_title">GIẤY CHỨNG NHẬN</div>
+                                <div class="cert_header_divider">
+                                    <span class="divider_line"></span>
+                                    <span class="divider_gem">★</span>
+                                    <span class="divider_line"></span>
+                                </div>
+                            </div>
 
-                    <div class="message_box">
-                        <p class="message_content">Gửi lời nhắn đến đại hội...</p>
+                            <div class="cert_body_layout">
+                                <div class="cert_avatar_wrap">
+                                    <div class="cert_avatar_circle" id="certAvatarClickable" title="Nhấp để căn chỉnh ảnh">
+                                        <img src="pics/placeholder.jpg" alt="Ảnh đại biểu" id="img_choosen">
+                                    </div>
+                                    <div class="cert_avatar_badge">ĐẠI BIỂU</div>
+                                </div>
+
+                                <div class="cert_recipient_name" id="previewName">NGUYỄN VĂN A</div>
+                                <div class="cert_name_divider"></div>
+
+                                <div class="cert_meta_info">
+                                    <div class="cert_meta_card">
+                                        <span class="meta_label">Địa phương / Đơn vị:</span>
+                                        <span class="meta_value" id="previewUnit">Đoàn trường Đại học Hà Tĩnh</span>
+                                    </div>
+                                    <div class="cert_meta_card">
+                                        <span class="meta_label">Tổ chức đoàn nơi tham gia sinh hoạt:</span>
+                                        <span class="meta_value" id="previewBranch">Chi đoàn Cán bộ Giảng viên</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
