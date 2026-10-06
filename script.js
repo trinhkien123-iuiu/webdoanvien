@@ -96,7 +96,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const certAvatarClickable = document.getElementById("certAvatarClickable");
     const previewName = document.getElementById("previewName");
     const previewUnit = document.getElementById("previewUnit");
-    const previewBranch = document.getElementById("previewBranch");
     const exportCanvas = document.getElementById("exportCanvas");
 
     const cropModal = document.getElementById("cropModal");
@@ -127,17 +126,34 @@ document.addEventListener("DOMContentLoaded", () => {
         unitSelect.appendChild(opt);
     });
 
-    nameInput.addEventListener("input", (e) => {
-        previewName.textContent = e.target.value.trim().toUpperCase() || "NGUYỄN VĂN A";
-    });
+    function updatePreviewName() {
+        if (!previewName) return;
+        const name = (nameInput.value || "").trim().toUpperCase() || "NGUYỄN VĂN A";
+        previewName.textContent = name;
+        if (name.length > 26) {
+            previewName.style.fontSize = "clamp(8px, 1.65cqi, 32px)";
+        } else if (name.length > 18) {
+            previewName.style.fontSize = "clamp(9px, 1.95cqi, 38px)";
+        } else {
+            previewName.style.fontSize = "clamp(10px, 2.3cqi, 46px)";
+        }
+    }
 
-    unitSelect.addEventListener("change", (e) => {
-        previewUnit.textContent = e.target.value || "Đoàn trường Đại học Hà Tĩnh";
-    });
+    function updatePreviewUnit() {
+        if (!previewUnit) return;
+        const u = (unitSelect.value || "").trim() || "Đoàn trường Đại học Hà Tĩnh";
+        previewUnit.textContent = u;
+        if (u.length > 36) {
+            previewUnit.style.fontSize = "clamp(7px, 1.25cqi, 24px)";
+        } else if (u.length > 25) {
+            previewUnit.style.fontSize = "clamp(8px, 1.45cqi, 28px)";
+        } else {
+            previewUnit.style.fontSize = "clamp(8.5px, 1.65cqi, 32px)";
+        }
+    }
 
-    branchInput.addEventListener("input", (e) => {
-        previewBranch.textContent = e.target.value.trim() || "Chi đoàn Cán bộ Giảng viên";
-    });
+    nameInput.addEventListener("input", updatePreviewName);
+    unitSelect.addEventListener("change", updatePreviewUnit);
 
     function loadRealStats() {
         const stats = {};
@@ -407,40 +423,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return await response.json();
     }
 
-    function drawMetaPill(ctx, label, value, y) {
-        ctx.font = "700 26px 'Montserrat', sans-serif";
-        const labelW = ctx.measureText(label).width;
-        ctx.font = "700 26px 'Montserrat', sans-serif";
-        const valW = ctx.measureText(value).width;
-        const totalTextW = labelW + valW + 12;
-
-        const pillPadX = 32;
-        const pillW = totalTextW + pillPadX * 2;
-        const pillH = 52;
-        const pillX = 960 - pillW / 2;
-        const pillY = y - pillH / 2;
-
-        ctx.fillStyle = "rgba(239, 246, 255, 0.85)";
-        ctx.beginPath();
-        ctx.roundRect(pillX, pillY, pillW, pillH, 26);
-        ctx.fill();
-
-        ctx.strokeStyle = "#BFDBFE";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        const startTextX = 960 - totalTextW / 2;
-        ctx.textAlign = "left";
-        ctx.fillStyle = "#1E40AF";
-        ctx.font = "700 26px 'Montserrat', sans-serif";
-        ctx.fillText(label, startTextX, y + 8);
-
-        ctx.fillStyle = "#0F172A";
-        ctx.font = "700 26px 'Montserrat', sans-serif";
-        ctx.fillText(value, startTextX + labelW + 12, y + 8);
-        ctx.textAlign = "center";
-    }
-
     async function generateAndDownloadCertificate(fullName, unit, branch) {
         if (document.fonts) {
             await document.fonts.ready;
@@ -450,65 +432,30 @@ document.addEventListener("DOMContentLoaded", () => {
         exportCanvas.width = 1920;
         exportCanvas.height = 1080;
 
-        const bgGrad = ctx.createRadialGradient(960, 480, 150, 960, 540, 1100);
-        bgGrad.addColorStop(0, "#FFFFFF");
-        bgGrad.addColorStop(0.7, "#F8FAFD");
-        bgGrad.addColorStop(1, "#EFF6FF");
-        ctx.fillStyle = bgGrad;
-        ctx.fillRect(0, 0, 1920, 1080);
-
-        ctx.strokeStyle = "#1E40AF";
-        ctx.lineWidth = 7;
-        ctx.strokeRect(36, 36, 1848, 1008);
-
-        ctx.strokeStyle = "#FDE68A";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(46, 46, 1828, 988);
-
-        ctx.strokeStyle = "#D4AF37";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(54, 54, 1812, 972);
-
-        function drawCornerBracket(x, y, dx, dy) {
-            ctx.strokeStyle = "#D4AF37";
-            ctx.lineWidth = 5;
-            ctx.beginPath();
-            ctx.moveTo(x, y + dy * 36);
-            ctx.lineTo(x, y);
-            ctx.lineTo(x + dx * 36, y);
-            ctx.stroke();
+        const bgImg = new Image();
+        bgImg.src = "pics/thongdiep.png";
+        if (bgImg.decode) {
+            try {
+                await bgImg.decode();
+            } catch (e) {
+                await new Promise((res, rej) => {
+                    bgImg.onload = res;
+                    bgImg.onerror = rej;
+                });
+            }
+        } else {
+            await new Promise((res, rej) => {
+                if (bgImg.complete && bgImg.naturalWidth > 0) return res();
+                bgImg.onload = res;
+                bgImg.onerror = rej;
+            });
         }
-        drawCornerBracket(64, 64, 1, 1);
-        drawCornerBracket(1920 - 64, 64, -1, 1);
-        drawCornerBracket(64, 1080 - 64, 1, -1);
-        drawCornerBracket(1920 - 64, 1080 - 64, -1, -1);
 
-        ctx.textAlign = "center";
+        ctx.drawImage(bgImg, 0, 0, 1920, 1080);
 
-        ctx.fillStyle = "#1E40AF";
-        ctx.font = "800 28px 'Montserrat', sans-serif";
-        ctx.fillText("ĐOÀN TNCS HỒ CHÍ MINH TỈNH HÀ TĨNH", 960, 160);
-
-        ctx.fillStyle = "#B91C1C";
-        ctx.font = "900 84px 'Playfair Display', serif";
-        ctx.fillText("GIẤY CHỨNG NHẬN", 960, 270);
-
-        ctx.strokeStyle = "#D4AF37";
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(960 - 160, 300);
-        ctx.lineTo(960 - 25, 300);
-        ctx.moveTo(960 + 25, 300);
-        ctx.lineTo(960 + 160, 300);
-        ctx.stroke();
-
-        ctx.fillStyle = "#D4AF37";
-        ctx.font = "700 22px 'Montserrat', sans-serif";
-        ctx.fillText("★", 960, 307);
-
-        const avatarCenterX = 960;
-        const avatarCenterY = 460;
-        const avatarRadius = 120;
+        const avatarCenterX = 265;
+        const avatarCenterY = 475;
+        const avatarRadius = 184;
 
         ctx.save();
         ctx.beginPath();
@@ -516,70 +463,71 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.closePath();
         ctx.clip();
 
-        if (userCroppedImage) {
+        const imgToDraw = userCroppedImage || avatarPreview;
+        if (imgToDraw && imgToDraw.complete && imgToDraw.naturalWidth > 0) {
             ctx.drawImage(
-                userCroppedImage,
+                imgToDraw,
                 avatarCenterX - avatarRadius,
                 avatarCenterY - avatarRadius,
                 avatarRadius * 2,
                 avatarRadius * 2
             );
         } else {
-            ctx.fillStyle = "#EFF6FF";
+            ctx.fillStyle = "#CBD5E1";
             ctx.fillRect(avatarCenterX - avatarRadius, avatarCenterY - avatarRadius, avatarRadius * 2, avatarRadius * 2);
         }
         ctx.restore();
 
-        ctx.strokeStyle = "#D4AF37";
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#FFE66D";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
 
-        ctx.strokeStyle = "#1E40AF";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(avatarCenterX, avatarCenterY, avatarRadius + 4, 0, Math.PI * 2);
-        ctx.stroke();
+        const displayName = (fullName || "NGUYỄN VĂN A").trim().toUpperCase();
+        let nameFontSize = 48;
+        if (displayName.length > 26) {
+            nameFontSize = 36;
+        } else if (displayName.length > 18) {
+            nameFontSize = 42;
+        }
+        ctx.font = `800 ${nameFontSize}px 'Montserrat', sans-serif`;
+        const maxNameWidth = 760;
+        while (ctx.measureText(displayName).width > maxNameWidth && nameFontSize > 24) {
+            nameFontSize -= 1;
+            ctx.font = `800 ${nameFontSize}px 'Montserrat', sans-serif`;
+        }
+        ctx.fillText(displayName, 875, 295);
 
-        const badgeW = 160;
-        const badgeH = 34;
-        const badgeY = avatarCenterY + avatarRadius - 12;
-        ctx.fillStyle = "#1E40AF";
-        ctx.beginPath();
-        ctx.roundRect(avatarCenterX - badgeW / 2, badgeY, badgeW, badgeH, 17);
-        ctx.fill();
-        ctx.strokeStyle = "#FDE68A";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
 
-        ctx.fillStyle = "#FEF08A";
-        ctx.font = "800 16px 'Montserrat', sans-serif";
-        ctx.fillText("ĐẠI BIỂU", avatarCenterX, badgeY + 23);
+        const displayUnit = (unit || "Đoàn trường Đại học Hà Tĩnh").trim();
+        let unitFontSize = 34;
+        if (displayUnit.length > 36) {
+            unitFontSize = 26;
+        } else if (displayUnit.length > 25) {
+            unitFontSize = 30;
+        }
+        ctx.font = `700 ${unitFontSize}px 'Montserrat', sans-serif`;
+        const maxUnitWidth = 750;
+        while (ctx.measureText(displayUnit).width > maxUnitWidth && unitFontSize > 18) {
+            unitFontSize -= 1;
+            ctx.font = `700 ${unitFontSize}px 'Montserrat', sans-serif`;
+        }
+        ctx.fillText(displayUnit, 825, 380);
 
-        ctx.fillStyle = "#0A2558";
-        ctx.font = "900 66px 'Montserrat', sans-serif";
-        ctx.fillText(fullName.toUpperCase(), 960, 680);
-
-        const nameLineGrad = ctx.createLinearGradient(960 - 200, 705, 960 + 200, 705);
-        nameLineGrad.addColorStop(0, "transparent");
-        nameLineGrad.addColorStop(0.5, "#D4AF37");
-        nameLineGrad.addColorStop(1, "transparent");
-        ctx.strokeStyle = nameLineGrad;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(960 - 200, 705);
-        ctx.lineTo(960 + 200, 705);
-        ctx.stroke();
-
-        drawMetaPill(ctx, "Địa phương / Đơn vị: ", unit || "Đoàn trường Đại học Hà Tĩnh", 775);
-        drawMetaPill(ctx, "Tổ chức đoàn nơi tham gia sinh hoạt: ", branch || "Chi đoàn Cán bộ Giảng viên", 845);
+        ctx.shadowColor = "transparent";
 
         exportCanvas.toBlob((blob) => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             const cleanName = fullName.replace(/[^a-zA-Z0-9]/g, "_");
-            a.download = `Giay-Chung-Nhan-${cleanName}.png`;
+            a.download = `Thong_Diep_${cleanName || "Doan_Vien"}.png`;
             a.href = url;
             a.click();
             URL.revokeObjectURL(url);
