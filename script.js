@@ -131,11 +131,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const name = (nameInput.value || "").trim().toUpperCase() || "NGUYỄN VĂN A";
         previewName.textContent = name;
         if (name.length > 26) {
-            previewName.style.fontSize = "clamp(8px, 1.65cqi, 32px)";
+            previewName.style.fontSize = "clamp(7.5px, 1.4cqi, 28px)";
         } else if (name.length > 18) {
-            previewName.style.fontSize = "clamp(9px, 1.95cqi, 38px)";
+            previewName.style.fontSize = "clamp(8.5px, 1.7cqi, 34px)";
         } else {
-            previewName.style.fontSize = "clamp(10px, 2.3cqi, 46px)";
+            previewName.style.fontSize = "clamp(9px, 1.95cqi, 40px)";
         }
     }
 
@@ -143,12 +143,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!previewUnit) return;
         const u = (unitSelect.value || "").trim() || "Đoàn trường Đại học Hà Tĩnh";
         previewUnit.textContent = u;
-        if (u.length > 36) {
+        if (u.length > 40) {
+            previewUnit.style.fontSize = "clamp(6.5px, 1.15cqi, 22px)";
+        } else if (u.length > 28) {
             previewUnit.style.fontSize = "clamp(7px, 1.25cqi, 24px)";
-        } else if (u.length > 25) {
-            previewUnit.style.fontSize = "clamp(8px, 1.45cqi, 28px)";
         } else {
-            previewUnit.style.fontSize = "clamp(8.5px, 1.65cqi, 32px)";
+            previewUnit.style.fontSize = "clamp(7.5px, 1.35cqi, 26px)";
         }
     }
 
@@ -384,8 +384,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!cropper) return;
 
         const croppedCanvas = cropper.getCroppedCanvas({
-            width: 600,
-            height: 600,
+            width: 800,
+            height: 800,
             imageSmoothingEnabled: true,
             imageSmoothingQuality: "high"
         });
@@ -429,11 +429,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const ctx = exportCanvas.getContext("2d");
-        exportCanvas.width = 1920;
-        exportCanvas.height = 1080;
+        exportCanvas.width = 2880;
+        exportCanvas.height = 1620;
 
         const bgImg = new Image();
-        bgImg.src = "pics/thongdiep.png";
+        bgImg.src = "pics/cc.png";
         if (bgImg.decode) {
             try {
                 await bgImg.decode();
@@ -451,16 +451,18 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        ctx.drawImage(bgImg, 0, 0, 1920, 1080);
+        ctx.drawImage(bgImg, 0, 0, 2880, 1620);
 
-        const avatarCenterX = 265;
-        const avatarCenterY = 475;
-        const avatarRadius = 184;
+        const avatarCenterX = 474;
+        const avatarCenterY = 625;
+        const avatarRadius = 382;
 
         ctx.save();
         ctx.beginPath();
         ctx.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, Math.PI * 2, true);
         ctx.closePath();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fill();
         ctx.clip();
 
         const imgToDraw = userCroppedImage || avatarPreview;
@@ -478,49 +480,65 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         ctx.restore();
 
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 14;
+        ctx.beginPath();
+        ctx.arc(avatarCenterX, avatarCenterY, avatarRadius - 7, 0, Math.PI * 2, true);
+        ctx.stroke();
+
         ctx.textAlign = "left";
-        ctx.fillStyle = "#FFE66D";
         ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 2;
 
         const displayName = (fullName || "NGUYỄN VĂN A").trim().toUpperCase();
-        let nameFontSize = 48;
+        let nameFontSize = 52;
         if (displayName.length > 26) {
-            nameFontSize = 36;
+            nameFontSize = 38;
         } else if (displayName.length > 18) {
-            nameFontSize = 42;
+            nameFontSize = 44;
         }
+
         ctx.font = `800 ${nameFontSize}px 'Montserrat', sans-serif`;
-        const maxNameWidth = 760;
-        while (ctx.measureText(displayName).width > maxNameWidth && nameFontSize > 24) {
+        const maxLineWidth = 980;
+        while ((ctx.measureText("ĐỒNG CHÍ: ").width + ctx.measureText(displayName).width > maxLineWidth) && nameFontSize > 26) {
             nameFontSize -= 1;
             ctx.font = `800 ${nameFontSize}px 'Montserrat', sans-serif`;
         }
-        ctx.fillText(displayName, 875, 295);
 
         ctx.fillStyle = "#FFFFFF";
+        ctx.fillText("ĐỒNG CHÍ: ", 1020, 520);
+        const nameLabelWidth = ctx.measureText("ĐỒNG CHÍ: ").width;
+
+        ctx.fillStyle = "#FFE66D";
+        ctx.fillText(displayName, 1020 + nameLabelWidth, 520);
+
         ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
         ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 2;
 
         const displayUnit = (unit || "Đoàn trường Đại học Hà Tĩnh").trim();
-        let unitFontSize = 34;
-        if (displayUnit.length > 36) {
-            unitFontSize = 26;
-        } else if (displayUnit.length > 25) {
-            unitFontSize = 30;
+        let unitFontSize = 38;
+        if (displayUnit.length > 40) {
+            unitFontSize = 32;
+        } else if (displayUnit.length > 28) {
+            unitFontSize = 35;
         }
+
         ctx.font = `700 ${unitFontSize}px 'Montserrat', sans-serif`;
-        const maxUnitWidth = 750;
-        while (ctx.measureText(displayUnit).width > maxUnitWidth && unitFontSize > 18) {
+        const maxUnitLineWidth = 1500;
+        while ((ctx.measureText("ĐƠN VỊ: ").width + ctx.measureText(displayUnit).width > maxUnitLineWidth) && unitFontSize > 20) {
             unitFontSize -= 1;
             ctx.font = `700 ${unitFontSize}px 'Montserrat', sans-serif`;
         }
-        ctx.fillText(displayUnit, 825, 380);
 
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText("ĐƠN VỊ: ", 1020, 650);
+        const unitLabelWidth = ctx.measureText("ĐƠN VỊ: ").width;
+
+        ctx.fillText(displayUnit, 1020 + unitLabelWidth, 650);
         ctx.shadowColor = "transparent";
 
         exportCanvas.toBlob((blob) => {
