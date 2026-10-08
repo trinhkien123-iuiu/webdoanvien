@@ -343,13 +343,13 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateSyncTimeDisplay(timestamp) {
         if (!statsSyncTimeElem) return;
         if (!timestamp) {
-            statsSyncTimeElem.textContent = "Cập nhật 24h hàng ngày";
+            statsSyncTimeElem.textContent = "Hệ thống chốt và cập nhật số liệu vào 24h hàng ngày";
             return;
         }
         const d = new Date(Number(timestamp));
         const timeStr = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
         const dateStr = d.toLocaleDateString("vi-VN");
-        statsSyncTimeElem.textContent = `Cập nhật 24h hàng ngày (Lần cuối: ${timeStr} ${dateStr})`;
+        statsSyncTimeElem.textContent = `Hệ thống chốt và cập nhật số liệu vào 24h hàng ngày (Lần chốt gần nhất: ${timeStr} ${dateStr})`;
     }
 
     function loadLocalCachedData() {
@@ -487,6 +487,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (lastSync) {
             updateSyncTimeDisplay(lastSync);
             renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
+        }
+
+        // 2. Chế độ 24h: Nếu không bấm làm mới cưỡng chế (force) và cache còn hiệu lực trong ngày hôm nay (chưa qua 24:00 đêm)
+        if (!force && lastSync && isCacheValidToday(lastSync)) {
+            return;
         }
 
         if (refreshStatsBtn) refreshStatsBtn.classList.add("loading");
@@ -955,13 +960,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (!isDuplicate) {
                 realUsersSet.add(userFingerprint);
-                realStats[unit] = (realStats[unit] || 0) + 1;
-                totalSubmissionsCount = (totalSubmissionsCount || 0) + 1;
                 saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
-                renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
 
                 statusMsg.className = "status_msg success";
-                statusMsg.textContent = `✓ Đã lưu ảnh thành công! (+1 lượt tham gia cho ${unit})`;
+                statusMsg.textContent = `✓ Đã lưu ảnh thành công! Lượt tham gia của bạn đã được ghi nhận vào hệ thống (thống kê được chốt và cập nhật vào 24h hàng ngày)`;
             } else {
                 statusMsg.className = "status_msg success";
                 statusMsg.textContent = "✓ Tải ảnh thành công! (Lưu ý: Bạn đã hoàn thành trước đó nên hệ thống không tính thêm lượt trùng)";
