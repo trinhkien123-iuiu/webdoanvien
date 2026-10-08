@@ -327,19 +327,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    function isCacheValidToday(lastSyncTimestamp) {
-        if (!lastSyncTimestamp) return false;
-        const lastSync = new Date(Number(lastSyncTimestamp));
-        const now = new Date();
-
-        const isSameDay = (
-            now.getFullYear() === lastSync.getFullYear() &&
-            now.getMonth() === lastSync.getMonth() &&
-            now.getDate() === lastSync.getDate()
-        );
-        return isSameDay && (now.getTime() - lastSync.getTime() < CACHE_DURATION_MS);
-    }
-
     function updateSyncTimeDisplay(timestamp) {
         if (!statsSyncTimeElem) return;
         statsSyncTimeElem.textContent = "Bảng theo dõi số lượt tải chứng nhận thực tế (hệ thống tự động cập nhật vào 24h hàng ngày)";
@@ -487,9 +474,11 @@ document.addEventListener("DOMContentLoaded", () => {
         let syncSuccess = false;
 
         try {
-            // 1. Luôn đồng bộ danh sách đơn vị mới nhất từ tab DanhSach_DonVi qua Google Apps Script
+            // 1. Luôn đồng bộ danh sách đơn vị và số liệu thống kê mới nhất từ Google Apps Script
             try {
-                const apiRes = await fetch(API_ENDPOINT);
+                const apiRes = await fetch(`${API_ENDPOINT}?_t=${now}`, {
+                    cache: "no-store"
+                });
                 const apiJson = await apiRes.json();
                 if (apiJson && apiJson.success) {
                     // Cập nhật danh sách đơn vị từ tab DanhSach_DonVi trên Sheet
@@ -499,26 +488,26 @@ document.addEventListener("DOMContentLoaded", () => {
                         populateUnitSelect(UNITS);
                     }
 
-                    // Chế độ 24h: Chỉ cập nhật số liệu thống kê nếu chưa có cache trong ngày hoặc đã qua 24:00 đêm (hoặc force)
-                    const needUpdateStats = force || !lastSync || !isCacheValidToday(lastSync);
+                    // Cập nhật số liệu thống kê từng đơn vị theo dữ liệu thực tế trên Sheet
+                    UNITS.forEach((u) => {
+                        realStats[u] = (apiJson.unit_counts && apiJson.unit_counts[u]) || 0;
+                    });
 
-                    if (needUpdateStats) {
-                        if (apiJson.unit_counts) {
-                            UNITS.forEach((u) => {
-                                realStats[u] = apiJson.unit_counts[u] || 0;
-                            });
-                        }
-
-                        if (typeof apiJson.total_submissions === "number") {
-                            totalSubmissionsCount = apiJson.total_submissions;
-                        }
-
-                        saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
-                        localStorage.setItem(STATS_LAST_SYNC_KEY, String(now));
-                        updateSyncTimeDisplay(now);
+                    // Cập nhật tổng số lượt tải
+                    if (typeof apiJson.total_submissions === "number") {
+                        totalSubmissionsCount = apiJson.total_submissions;
                     } else {
-                        updateSyncTimeDisplay(lastSync);
+                        totalSubmissionsCount = Object.values(realStats).reduce((a, b) => a + b, 0);
                     }
+
+                    // Nếu trên Sheet đã bị xóa sạch (0 lượt), đặt lại danh sách trùng lặp
+                    if (totalSubmissionsCount === 0) {
+                        realUsersSet.clear();
+                    }
+
+                    saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
+                    localStorage.setItem(STATS_LAST_SYNC_KEY, String(now));
+                    updateSyncTimeDisplay(now);
 
                     renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
                     syncSuccess = true;
@@ -527,11 +516,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.warn("API Apps Script chưa phản hồi, thử tải qua GViz:", apiErr);
             }
 
-            // 2. Dự phòng: Nếu API chưa trả về và cần cập nhật số liệu thống kê 24h
-            const needUpdateStats = force || !lastSync || !isCacheValidToday(lastSync);
-            if (!syncSuccess && needUpdateStats) {
+            // 2. Dự phòng: Nếu API chưa trả về, tải trực tiếp qua GViz từ Google Sheet
+            if (!syncSuccess) {
                 try {
-                    const response = await fetch(SHEET_GVIZ_URL);
+                    const response = await fetch(`${SHEET_GVIZ_URL}&_t=${now}`, {
+                        cache: "no-store"
+                    });
                     if (!response.ok) throw new Error("HTTP error: " + response.status);
                     const text = await response.text();
 
@@ -545,6 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const newStats = {};
                     UNITS.forEach((u) => { newStats[u] = 0; });
                     const newUsersSet = new Set();
+                    let validRowCount = 0;
 
                     const normalizeText = (s) => (s || "").toLowerCase().trim().replace(/\s+/g, " ");
                     const unitLookup = new Map();
@@ -554,10 +545,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     rows.forEach((row) => {
                         if (!row || !row.c) return;
+                        const col0 = row.c[0]?.v ? String(row.c[0].v).trim() : "";
                         const name = row.c[2]?.v ? String(row.c[2].v).trim() : "";
                         const unitVal = row.c[3]?.v ? String(row.c[3].v).trim() : "";
                         const branchVal = row.c[4]?.v ? String(row.c[4].v).trim() : "";
 
+                        // Bỏ qua dòng tiêu đề
+                        if (col0 === "STT" || name === "Họ và tên" || unitVal === "Địa phương / Đơn vị") return;
                         if (!unitVal) return;
 
                         const normUnit = normalizeText(unitVal);
@@ -574,6 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
 
                         if (matchedUnit) {
+                            validRowCount++;
                             const fingerprint = `${normalizeText(name)}|${normalizeText(matchedUnit)}|${normalizeText(branchVal)}`;
                             if (!newUsersSet.has(fingerprint)) {
                                 newUsersSet.add(fingerprint);
@@ -582,10 +577,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     });
 
-                    Object.assign(realStats, newStats);
+                    UNITS.forEach((u) => {
+                        realStats[u] = newStats[u] || 0;
+                    });
                     realUsersSet.clear();
                     newUsersSet.forEach((u) => realUsersSet.add(u));
-                    totalSubmissionsCount = Math.max(rows.length, Object.values(realStats).reduce((a, b) => a + b, 0));
+                    totalSubmissionsCount = validRowCount;
 
                     saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
                     localStorage.setItem(STATS_LAST_SYNC_KEY, String(now));
@@ -611,13 +608,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     renderStatsTable();
-    fetchStatsFromSheet(false);
+    fetchStatsFromSheet(true);
 
     if (refreshStatsBtn) {
         refreshStatsBtn.addEventListener("click", () => {
             fetchStatsFromSheet(true);
         });
     }
+
+    // Tự động làm mới khi người dùng quay lại tab trình duyệt
+    window.addEventListener("focus", () => {
+        fetchStatsFromSheet(true);
+    });
+
+    // Định kỳ tự động đồng bộ mỗi 30 giây
+    setInterval(() => {
+        fetchStatsFromSheet(true);
+    }, 30000);
 
     if (statsSearchInput) {
         statsSearchInput.addEventListener("input", (e) => {
@@ -959,11 +966,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
 
                 statusMsg.className = "status_msg success";
-                statusMsg.textContent = `✓ Đã lưu ảnh thành công! Lượt tham gia của bạn đã được ghi nhận vào hệ thống (thống kê được chốt và cập nhật vào 24h hàng ngày)`;
+                statusMsg.textContent = `✓ Đã lưu ảnh thành công! Lượt tham gia của bạn đã được ghi nhận vào hệ thống.`;
             } else {
                 statusMsg.className = "status_msg success";
                 statusMsg.textContent = "✓ Tải ảnh thành công! (Lưu ý: Bạn đã hoàn thành trước đó nên hệ thống không tính thêm lượt trùng)";
             }
+
+            // Đồng bộ lại số liệu thống kê thực tế từ Google Sheet
+            setTimeout(() => {
+                fetchStatsFromSheet(true);
+            }, 1200);
 
             if (typeof confetti === "function") {
                 confetti({
