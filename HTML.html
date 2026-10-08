@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Yêu Tổ Quốc bằng Hành động số</title>
     <link rel="stylesheet" href="style.css?v=4">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 </head>
+
 <body>
     <div class="background">
         <header class="main_header">
@@ -16,7 +20,6 @@
                 <span>ĐOÀN TNCS HỒ CHÍ MINH TỈNH HÀ TĨNH</span>
             </div>
             <h1 class="header_title">Yêu Tổ Quốc bằng Hành động số</h1>
-            <p class="header_subtitle">Đại hội đại biểu Đoàn TNCS Hồ Chí Minh tỉnh Hà Tĩnh lần thứ XIX, nhiệm kỳ 2025 - 2030</p>
         </header>
 
         <div class="content">
@@ -41,23 +44,19 @@
 
                     <div class="form_group">
                         <label for="username" class="field_label">Họ và tên:</label>
-                        <input type="text" id="username" class="form_input" placeholder="Nhập họ và tên của bạn" required autocomplete="name">
+                        <input type="text" id="username" class="form_input" placeholder="Nhập họ và tên của bạn"
+                            required autocomplete="name">
                     </div>
 
                     <div class="form_group">
                         <label for="unit" class="field_label">Địa phương / Đơn vị:</label>
-                        <div class="select_wrapper">
-                            <select id="unit" class="form_select" required>
-                                <option value="">Vui lòng chọn đơn vị</option>
-                            </select>
+                        <div class="searchable_select_wrapper" id="unitWrapper">
+                            <input type="text" id="unit" class="form_input searchable_select_input"
+                                placeholder="Gõ để tìm kiếm hoặc chọn đơn vị..." required autocomplete="off">
+                            <span class="select_arrow" id="unitArrow" title="Mở danh sách đơn vị">⌵</span>
+                            <div class="searchable_select_dropdown" id="unitDropdown" style="display: none;"></div>
                         </div>
-                        <small class="field_hint">(Danh sách các đơn vị theo Tỉnh Đoàn)</small>
-                    </div>
-
-                    <div class="form_group">
-                        <label for="youthUnionBranch" class="field_label">Tổ chức đoàn nơi tham gia sinh hoạt:</label>
-                        <small class="field_hint">(Ghi rõ chi đoàn + tên đơn vị tổ chức đoàn)</small>
-                        <textarea id="youthUnionBranch" class="form_textarea" rows="2" placeholder="Nhập thông tin tổ chức đoàn..." required></textarea>
+                        <small class="field_hint">(Gõ để tìm kiếm nhanh hoặc nhấp để chọn trong danh sách)</small>
                     </div>
 
                     <button type="submit" id="downloadBtn" class="submit_action_btn">
@@ -75,11 +74,11 @@
                     </div>
                     <div class="banner_name_line">
                         <span class="banner_label">ĐỒNG CHÍ:</span>
-                        <span class="banner_val banner_val_name" id="previewName">NGUYỄN VĂN A</span>
+                        <span class="banner_val banner_val_name" id="previewName"></span>
                     </div>
                     <div class="banner_unit_line">
                         <span class="banner_label">ĐƠN VỊ:</span>
-                        <span class="banner_val banner_val_unit" id="previewUnit">Đoàn trường Đại học Hà Tĩnh</span>
+                        <span class="banner_val banner_val_unit" id="previewUnit"></span>
                     </div>
                 </div>
             </section>
@@ -87,12 +86,8 @@
 
         <section class="stats_section" id="statsSection">
             <div class="stats_header">
-                <div class="stats_badge">
-                    <span class="stats_badge_dot"></span>
-                    <span>DỮ LIỆU ĐỒNG BỘ THỰC TẾ</span>
-                </div>
                 <h2 class="stats_heading">Bảng thống kê số lượng theo Địa phương / Đơn vị</h2>
-                <p class="stats_desc">Bảng theo dõi số lượt tải chứng nhận thực tế (tự động nhận diện và không tính trùng lặp)</p>
+                <!-- <p class="stats_desc">Bảng theo dõi số lượt tải chứng nhận thực tế (tự động nhận diện và không tính trùng lặp)</p> -->
             </div>
 
             <div class="stats_summary_grid">
@@ -116,7 +111,8 @@
             <div class="stats_controls">
                 <div class="search_wrapper">
                     <span class="search_icon">🔍</span>
-                    <input type="text" id="statsSearchInput" class="stats_search_input" placeholder="Tìm kiếm địa phương, đơn vị...">
+                    <input type="text" id="statsSearchInput" class="stats_search_input"
+                        placeholder="Tìm kiếm địa phương, đơn vị...">
                 </div>
 
                 <div class="sort_wrapper">
@@ -160,7 +156,8 @@
             <div class="crop_container">
                 <img id="cropperImage" src="" alt="Ảnh cần crop">
             </div>
-            <p class="crop_hint">Kéo ảnh hoặc dùng con lăn chuột / 2 ngón tay để phóng to, thu nhỏ và di chuyển khuôn mặt vào đúng vòng tròn.</p>
+            <p class="crop_hint">Kéo ảnh hoặc dùng con lăn chuột / 2 ngón tay để phóng to, thu nhỏ và di chuyển khuôn
+                mặt vào đúng vòng tròn.</p>
             <div class="crop_modal_footer">
                 <div class="crop_tools">
                     <button type="button" id="zoomInBtn" class="btn_tool" title="Phóng to">Phóng to</button>
@@ -181,4 +178,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script src="script.js?v=4"></script>
 </body>
+
 </html>

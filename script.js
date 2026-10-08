@@ -1,15 +1,24 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const API_ENDPOINT = "https://api-cua-ban-kia.com/api/register"; 
-    const USE_MOCK_TEST = true;
-    const STATS_DATA_KEY = "real_youth_union_stats";
-    const STATS_USERS_KEY = "real_youth_union_users";
+    // Google Apps Script Web App Deployment URL
+    // Deployment ID: AKfycbzSbYYU_YjPhWyFpwGRticZdv4GjYgK5J7I-X-gErII_zO3jl57LG5_hj58QoAVqtJ-
+    const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzSbYYU_YjPhWyFpwGRticZdv4GjYgK5J7I-X-gErII_zO3jl57LG5_hj58QoAVqtJ-/exec";
+    const USE_MOCK_TEST = false;
+    const SHEET_ID = "1ky8mIRUtOG57mQXaxpSfOAeH_J-aBCiIHCTU-34IIXc";
+    const SHEET_GID = "465318084";
+    const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${SHEET_GID}`;
+    const STATS_DATA_KEY = "sheet_youth_union_stats";
+    const STATS_USERS_KEY = "sheet_youth_union_users";
+    const STATS_LAST_SYNC_KEY = "sheet_stats_last_sync";
+    const STATS_TOTAL_KEY = "sheet_stats_total_submissions";
+    const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 giờ tự động làm mới
+    const CACHE_UNITS_KEY = "sheet_cached_units";
 
-    const UNITS = [
+    const DEFAULT_UNITS = [
         "Đoàn TNCS Hồ Chí Minh UBND tỉnh",
         "Đoàn TNCS Hồ Chí Minh Công an Tỉnh",
         "Đoàn trường Đại học Hà Tĩnh",
         "Đoàn TNCS Hồ Chí Minh các cơ quan Đảng tỉnh",
-        "Đoàn TNCS Hồ Chí Minh Bộ chỉ huy Quân sự tỉnh",
+        "Đoàn TNCS Hồ Chí Minh Bộ chỉquy Quân sự tỉnh",
         "Đoàn phường Thành Sen",
         "Đoàn phường Trần Phú",
         "Đoàn phường Hà Huy Tập",
@@ -81,12 +90,29 @@ document.addEventListener("DOMContentLoaded", () => {
         "Đoàn Xã Hương Xuân"
     ];
 
+    function loadCachedUnits() {
+        const saved = localStorage.getItem(CACHE_UNITS_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed;
+                }
+            } catch (e) { }
+        }
+        return [...DEFAULT_UNITS];
+    }
+
+    let UNITS = loadCachedUnits();
+
     const form = document.getElementById("certificateForm");
     const avatarInput = document.getElementById("avatarInput");
     const recropBtn = document.getElementById("recropBtn");
     const nameInput = document.getElementById("username");
     const unitSelect = document.getElementById("unit");
-    const branchInput = document.getElementById("youthUnionBranch");
+    const unitWrapper = document.getElementById("unitWrapper");
+    const unitArrow = document.getElementById("unitArrow");
+    const unitDropdown = document.getElementById("unitDropdown");
     const downloadBtn = document.getElementById("downloadBtn");
     const btnText = downloadBtn.querySelector(".btn_text");
     const btnSpinner = document.getElementById("btnSpinner");
@@ -113,22 +139,109 @@ document.addEventListener("DOMContentLoaded", () => {
     const totalCertCountElem = document.getElementById("totalCertCount");
     const topUnitNameElem = document.getElementById("topUnitName");
     const filteredUnitCountElem = document.getElementById("filteredUnitCount");
+    const totalUnitsBadgeElem = document.getElementById("totalUnitsBadge");
+    const refreshStatsBtn = document.getElementById("refreshStatsBtn");
+    const statsSyncTimeElem = document.getElementById("statsSyncTime");
 
     let cropper = null;
     let currentRawImageUrl = null;
     let userCroppedImage = null;
     let currentSortMode = "name_asc";
+    let activeDropdownIndex = -1;
 
-    UNITS.forEach((unitName) => {
-        const opt = document.createElement("option");
-        opt.value = unitName;
-        opt.textContent = unitName;
-        unitSelect.appendChild(opt);
-    });
+    function renderUnitDropdown(filterText = "") {
+        if (!unitDropdown) return;
+        const keyword = (filterText || "").trim().toLowerCase();
+        const filtered = UNITS.filter((u) => u.toLowerCase().includes(keyword));
+
+        unitDropdown.innerHTML = "";
+        activeDropdownIndex = -1;
+
+        if (filtered.length === 0) {
+            const noMatch = document.createElement("div");
+            noMatch.className = "searchable_no_match";
+            noMatch.textContent = "Không tìm thấy đơn vị phù hợp";
+            unitDropdown.appendChild(noMatch);
+            return;
+        }
+
+        filtered.forEach((unitName) => {
+            const item = document.createElement("div");
+            item.className = "searchable_option_item";
+            if (unitSelect && unitSelect.value.trim() === unitName) {
+                item.classList.add("selected");
+            }
+
+            if (keyword) {
+                const lowerName = unitName.toLowerCase();
+                const matchStart = lowerName.indexOf(keyword);
+                if (matchStart !== -1) {
+                    const before = unitName.substring(0, matchStart);
+                    const matched = unitName.substring(matchStart, matchStart + keyword.length);
+                    const after = unitName.substring(matchStart + keyword.length);
+                    item.innerHTML = `${before}<span class="highlight_match">${matched}</span>${after}`;
+                } else {
+                    item.textContent = unitName;
+                }
+            } else {
+                item.textContent = unitName;
+            }
+
+            item.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                selectUnitOption(unitName);
+            });
+
+            unitDropdown.appendChild(item);
+        });
+    }
+
+    function openUnitDropdown() {
+        if (!unitDropdown) return;
+        renderUnitDropdown(unitSelect ? unitSelect.value : "");
+        unitDropdown.style.display = "block";
+        if (unitWrapper) unitWrapper.classList.add("is_open");
+    }
+
+    function closeUnitDropdown() {
+        if (!unitDropdown) return;
+        unitDropdown.style.display = "none";
+        if (unitWrapper) unitWrapper.classList.remove("is_open");
+        activeDropdownIndex = -1;
+    }
+
+    function selectUnitOption(unitName) {
+        if (!unitSelect) return;
+        unitSelect.value = unitName;
+        closeUnitDropdown();
+        updatePreviewUnit();
+    }
+
+    function updateActiveDropdownItem(items) {
+        items.forEach((item, idx) => {
+            if (idx === activeDropdownIndex) {
+                item.classList.add("hovered");
+                item.scrollIntoView({ block: "nearest" });
+            } else {
+                item.classList.remove("hovered");
+            }
+        });
+    }
+
+    function populateUnitSelect(unitList) {
+        if (totalUnitsBadgeElem) {
+            totalUnitsBadgeElem.textContent = unitList.length;
+        }
+        if (unitDropdown && unitDropdown.style.display === "block") {
+            renderUnitDropdown(unitSelect ? unitSelect.value : "");
+        }
+    }
+
+    populateUnitSelect(UNITS);
 
     function updatePreviewName() {
         if (!previewName) return;
-        const name = (nameInput.value || "").trim().toUpperCase() || "NGUYỄN VĂN A";
+        const name = (nameInput.value || "").trim().toUpperCase();
         previewName.textContent = name;
         if (name.length > 26) {
             previewName.style.fontSize = "clamp(7.5px, 1.4cqi, 28px)";
@@ -141,7 +254,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updatePreviewUnit() {
         if (!previewUnit) return;
-        const u = (unitSelect.value || "").trim() || "Đoàn trường Đại học Hà Tĩnh";
+        const u = (unitSelect.value || "").trim();
         previewUnit.textContent = u;
         if (u.length > 40) {
             previewUnit.style.fontSize = "clamp(6.5px, 1.15cqi, 22px)";
@@ -153,46 +266,128 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     nameInput.addEventListener("input", updatePreviewName);
-    unitSelect.addEventListener("change", updatePreviewUnit);
 
-    function loadRealStats() {
-        const stats = {};
-        UNITS.forEach((u) => {
-            stats[u] = 0;
+    if (unitSelect) {
+        unitSelect.addEventListener("focus", openUnitDropdown);
+        unitSelect.addEventListener("click", openUnitDropdown);
+        unitSelect.addEventListener("input", () => {
+            renderUnitDropdown(unitSelect.value);
+            if (unitDropdown && unitDropdown.style.display !== "block") {
+                openUnitDropdown();
+            }
+            updatePreviewUnit();
         });
 
-        const saved = localStorage.getItem(STATS_DATA_KEY);
-        if (saved) {
+        unitSelect.addEventListener("keydown", (e) => {
+            if (!unitDropdown || unitDropdown.style.display !== "block") {
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    openUnitDropdown();
+                    e.preventDefault();
+                }
+                return;
+            }
+
+            const items = unitDropdown.querySelectorAll(".searchable_option_item");
+            if (items.length === 0) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                activeDropdownIndex = (activeDropdownIndex + 1) % items.length;
+                updateActiveDropdownItem(items);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                activeDropdownIndex = (activeDropdownIndex - 1 + items.length) % items.length;
+                updateActiveDropdownItem(items);
+            } else if (e.key === "Enter") {
+                if (activeDropdownIndex >= 0 && activeDropdownIndex < items.length) {
+                    e.preventDefault();
+                    items[activeDropdownIndex].dispatchEvent(new MouseEvent("mousedown"));
+                }
+            } else if (e.key === "Escape") {
+                closeUnitDropdown();
+            }
+        });
+    }
+
+    if (unitArrow) {
+        unitArrow.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (unitDropdown && unitDropdown.style.display === "block") {
+                closeUnitDropdown();
+            } else {
+                if (unitSelect) unitSelect.focus();
+                openUnitDropdown();
+            }
+        });
+    }
+
+    document.addEventListener("click", (e) => {
+        if (unitWrapper && !unitWrapper.contains(e.target)) {
+            closeUnitDropdown();
+        }
+    });
+
+    function isCacheValidToday(lastSyncTimestamp) {
+        if (!lastSyncTimestamp) return false;
+        const lastSync = new Date(Number(lastSyncTimestamp));
+        const now = new Date();
+
+        const isSameDay = (
+            now.getFullYear() === lastSync.getFullYear() &&
+            now.getMonth() === lastSync.getMonth() &&
+            now.getDate() === lastSync.getDate()
+        );
+        return isSameDay && (now.getTime() - lastSync.getTime() < CACHE_DURATION_MS);
+    }
+
+    function updateSyncTimeDisplay(timestamp) {
+        if (!statsSyncTimeElem) return;
+        if (!timestamp) {
+            statsSyncTimeElem.textContent = "Cập nhật 24h hàng ngày";
+            return;
+        }
+        const d = new Date(Number(timestamp));
+        const timeStr = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+        const dateStr = d.toLocaleDateString("vi-VN");
+        statsSyncTimeElem.textContent = `Cập nhật 24h hàng ngày (Lần cuối: ${timeStr} ${dateStr})`;
+    }
+
+    function loadLocalCachedData() {
+        const stats = {};
+        UNITS.forEach((u) => { stats[u] = 0; });
+
+        const savedStats = localStorage.getItem(STATS_DATA_KEY);
+        if (savedStats) {
             try {
-                const parsed = JSON.parse(saved);
+                const parsed = JSON.parse(savedStats);
                 UNITS.forEach((u) => {
-                    if (typeof parsed[u] === "number") {
-                        stats[u] = parsed[u];
-                    }
+                    if (typeof parsed[u] === "number") stats[u] = parsed[u];
                 });
-            } catch (e) {}
+            } catch (e) { }
         }
-        return stats;
-    }
 
-    function loadRealUsers() {
-        const saved = localStorage.getItem(STATS_USERS_KEY);
-        if (saved) {
+        const savedUsers = localStorage.getItem(STATS_USERS_KEY);
+        const usersSet = new Set();
+        if (savedUsers) {
             try {
-                const parsed = JSON.parse(saved);
-                return new Set(Array.isArray(parsed) ? parsed : []);
-            } catch (e) {}
+                const parsed = JSON.parse(savedUsers);
+                if (Array.isArray(parsed)) parsed.forEach((u) => usersSet.add(u));
+            } catch (e) { }
         }
-        return new Set();
+
+        return { stats, usersSet };
     }
 
-    function saveRealData(stats, usersSet) {
+    function saveLocalCachedData(stats, usersSet, total = null) {
         localStorage.setItem(STATS_DATA_KEY, JSON.stringify(stats));
         localStorage.setItem(STATS_USERS_KEY, JSON.stringify(Array.from(usersSet)));
+        if (total !== null) {
+            localStorage.setItem(STATS_TOTAL_KEY, String(total));
+        }
     }
 
-    const realStats = loadRealStats();
-    const realUsersSet = loadRealUsers();
+    const { stats: realStats, usersSet: realUsersSet } = loadLocalCachedData();
+    let totalSubmissionsCount = parseInt(localStorage.getItem(STATS_TOTAL_KEY) || "0", 10);
 
     function renderStatsTable(filterText = "") {
         if (!statsTableBody) return;
@@ -210,10 +405,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (filteredUnitCountElem) {
             filteredUnitCountElem.textContent = list.length;
         }
+        if (totalUnitsBadgeElem) {
+            totalUnitsBadgeElem.textContent = UNITS.length;
+        }
 
-        const totalCount = Object.values(realStats).reduce((a, b) => a + b, 0);
+        const sumCount = Object.values(realStats).reduce((a, b) => a + b, 0);
+        const displayTotal = Math.max(totalSubmissionsCount, sumCount);
         if (totalCertCountElem) {
-            totalCertCountElem.textContent = totalCount.toLocaleString("vi-VN");
+            totalCertCountElem.textContent = displayTotal.toLocaleString("vi-VN");
         }
 
         let maxUnit = null;
@@ -280,7 +479,144 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    async function fetchStatsFromSheet(force = false) {
+        const now = Date.now();
+        const lastSync = localStorage.getItem(STATS_LAST_SYNC_KEY);
+
+        // 1. Hiển thị ngay dữ liệu cache để trang tải tức thì 0ms
+        if (lastSync) {
+            updateSyncTimeDisplay(lastSync);
+            renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
+        }
+
+        if (refreshStatsBtn) refreshStatsBtn.classList.add("loading");
+        if (statsSyncTimeElem) statsSyncTimeElem.textContent = "Đang tải dữ liệu từ Google Sheet...";
+
+        let syncSuccess = false;
+
+        try {
+            // 1. Thử lấy danh sách đơn vị mới nhất và thống kê từ Google Apps Script API
+            try {
+                const apiRes = await fetch(API_ENDPOINT);
+                const apiJson = await apiRes.json();
+                if (apiJson && apiJson.success) {
+                    // Cập nhật danh sách đơn vị từ tab DanhSach_DonVi trên Sheet
+                    if (Array.isArray(apiJson.units) && apiJson.units.length > 0) {
+                        UNITS = apiJson.units;
+                        localStorage.setItem(CACHE_UNITS_KEY, JSON.stringify(UNITS));
+                        populateUnitSelect(UNITS);
+                    }
+
+                    if (apiJson.unit_counts) {
+                        UNITS.forEach((u) => {
+                            realStats[u] = apiJson.unit_counts[u] || 0;
+                        });
+                    }
+
+                    if (typeof apiJson.total_submissions === "number") {
+                        totalSubmissionsCount = apiJson.total_submissions;
+                    }
+
+                    saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
+                    localStorage.setItem(STATS_LAST_SYNC_KEY, String(now));
+                    updateSyncTimeDisplay(now);
+                    renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
+                    syncSuccess = true;
+                }
+            } catch (apiErr) {
+                console.warn("API Apps Script chưa phản hồi, thử tải qua GViz:", apiErr);
+            }
+
+            // 2. Dự phòng: Nếu API chưa trả về, đọc trực tiếp từ Google Sheet qua GViz
+            if (!syncSuccess) {
+                try {
+                    const response = await fetch(SHEET_GVIZ_URL);
+                    if (!response.ok) throw new Error("HTTP error: " + response.status);
+                    const text = await response.text();
+
+                    const jsonStart = text.indexOf("{");
+                    const jsonEnd = text.lastIndexOf("}");
+                    if (jsonStart === -1 || jsonEnd === -1) throw new Error("Phản hồi GViz không hợp lệ");
+
+                    const gvizData = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+                    const rows = (gvizData.table && gvizData.table.rows) || [];
+
+                    const newStats = {};
+                    UNITS.forEach((u) => { newStats[u] = 0; });
+                    const newUsersSet = new Set();
+
+                    const normalizeText = (s) => (s || "").toLowerCase().trim().replace(/\s+/g, " ");
+                    const unitLookup = new Map();
+                    UNITS.forEach((u) => {
+                        unitLookup.set(normalizeText(u), u);
+                    });
+
+                    rows.forEach((row) => {
+                        if (!row || !row.c) return;
+                        const name = row.c[2]?.v ? String(row.c[2].v).trim() : "";
+                        const unitVal = row.c[3]?.v ? String(row.c[3].v).trim() : "";
+                        const branchVal = row.c[4]?.v ? String(row.c[4].v).trim() : "";
+
+                        if (!unitVal) return;
+
+                        const normUnit = normalizeText(unitVal);
+                        let matchedUnit = unitLookup.get(normUnit);
+
+                        if (!matchedUnit) {
+                            for (const u of UNITS) {
+                                const normU = normalizeText(u);
+                                if (normUnit.includes(normU) || normU.includes(normUnit)) {
+                                    matchedUnit = u;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (matchedUnit) {
+                            const fingerprint = `${normalizeText(name)}|${normalizeText(matchedUnit)}|${normalizeText(branchVal)}`;
+                            if (!newUsersSet.has(fingerprint)) {
+                                newUsersSet.add(fingerprint);
+                                newStats[matchedUnit] = (newStats[matchedUnit] || 0) + 1;
+                            }
+                        }
+                    });
+
+                    Object.assign(realStats, newStats);
+                    realUsersSet.clear();
+                    newUsersSet.forEach((u) => realUsersSet.add(u));
+                    totalSubmissionsCount = Math.max(rows.length, Object.values(realStats).reduce((a, b) => a + b, 0));
+
+                    saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
+                    localStorage.setItem(STATS_LAST_SYNC_KEY, String(now));
+
+                    updateSyncTimeDisplay(now);
+                    renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
+                    syncSuccess = true;
+
+                } catch (error) {
+                    console.warn("Không thể tải qua GViz:", error);
+                    const cachedTime = localStorage.getItem(STATS_LAST_SYNC_KEY);
+                    if (cachedTime) {
+                        updateSyncTimeDisplay(cachedTime);
+                    } else if (statsSyncTimeElem) {
+                        statsSyncTimeElem.textContent = "Chưa kết nối được Sheet";
+                    }
+                    renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
+                }
+            }
+        } finally {
+            if (refreshStatsBtn) refreshStatsBtn.classList.remove("loading");
+        }
+    }
+
     renderStatsTable();
+    fetchStatsFromSheet(false);
+
+    if (refreshStatsBtn) {
+        refreshStatsBtn.addEventListener("click", () => {
+            fetchStatsFromSheet(true);
+        });
+    }
 
     if (statsSearchInput) {
         statsSearchInput.addEventListener("input", (e) => {
@@ -384,8 +720,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!cropper) return;
 
         const croppedCanvas = cropper.getCroppedCanvas({
-            width: 800,
-            height: 800,
+            width: 600,
+            height: 600,
             imageSmoothingEnabled: true,
             imageSmoothingQuality: "high"
         });
@@ -408,22 +744,23 @@ document.addEventListener("DOMContentLoaded", () => {
             return { success: true, message: "Mock saved" };
         }
 
-        const response = await fetch(API_ENDPOINT, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
-
-        if (!response.ok) {
-            throw new Error(`Server returned status: ${response.status}`);
+        try {
+            await fetch(API_ENDPOINT, {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8"
+                },
+                body: JSON.stringify(data)
+            });
+            return { success: true };
+        } catch (err) {
+            console.warn("Gửi dữ liệu Google Apps Script thất bại:", err);
+            return { success: false, error: err };
         }
-
-        return await response.json();
     }
 
-    async function generateAndDownloadCertificate(fullName, unit, branch) {
+    async function generateAndDownloadCertificate(fullName, unit) {
         if (document.fonts) {
             await document.fonts.ready;
         }
@@ -492,7 +829,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 2;
 
-        const displayName = (fullName || "NGUYỄN VĂN A").trim().toUpperCase();
+        const displayName = (fullName || "").trim().toUpperCase();
         let nameFontSize = 52;
         if (displayName.length > 26) {
             nameFontSize = 38;
@@ -519,7 +856,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 2;
 
-        const displayUnit = (unit || "Đoàn trường Đại học Hà Tĩnh").trim();
+        const displayUnit = (unit || "").trim();
         let unitFontSize = 38;
         if (displayUnit.length > 40) {
             unitFontSize = 32;
@@ -561,8 +898,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const fullName = nameInput.value.trim();
-        const unit = unitSelect.value.trim();
-        const youthUnionBranch = branchInput.value.trim();
+        let unit = (unitSelect.value || "").trim();
 
         if (!fullName) {
             alert("Vui lòng nhập Họ và tên!");
@@ -571,15 +907,28 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (!unit) {
-            alert("Vui lòng chọn Địa phương/Đơn vị!");
+            alert("Vui lòng chọn hoặc tìm kiếm Địa phương/Đơn vị!");
             unitSelect.focus();
+            openUnitDropdown();
             return;
         }
 
-        if (!youthUnionBranch) {
-            alert("Vui lòng nhập Tổ chức đoàn nơi tham gia sinh hoạt!");
-            branchInput.focus();
-            return;
+        // Tự động chuẩn hóa nếu người dùng gõ tìm kiếm nhưng chưa bấm chọn từ danh sách
+        const matchedUnit = UNITS.find((u) => u.toLowerCase() === unit.toLowerCase());
+        if (matchedUnit) {
+            unit = matchedUnit;
+            unitSelect.value = matchedUnit;
+        } else {
+            const partial = UNITS.find((u) => u.toLowerCase().includes(unit.toLowerCase()));
+            if (partial) {
+                unit = partial;
+                unitSelect.value = partial;
+            } else {
+                alert("Vui lòng chọn một đơn vị hợp lệ từ danh sách gợi ý!");
+                unitSelect.focus();
+                openUnitDropdown();
+                return;
+            }
         }
 
         downloadBtn.disabled = true;
@@ -592,30 +941,30 @@ document.addEventListener("DOMContentLoaded", () => {
                 savedAt: new Date().toLocaleString("vi-VN"),
                 fullName: fullName,
                 unit: unit,
-                youthUnionBranch: youthUnionBranch,
                 avatarStatus: userCroppedImage ? "Đã tải ảnh" : "Chưa tải ảnh"
             };
 
-            await sendDataToDatabase(payload);
-            await generateAndDownloadCertificate(fullName, unit, youthUnionBranch);
+            const sendPromise = sendDataToDatabase(payload);
+            await generateAndDownloadCertificate(fullName, unit);
+            await sendPromise;
 
             const cleanFullName = fullName.trim().toLowerCase().replace(/\s+/g, " ");
             const cleanUnit = unit.trim().toLowerCase();
-            const cleanBranch = youthUnionBranch.trim().toLowerCase().replace(/\s+/g, " ");
-            const userFingerprint = `${cleanFullName}|${cleanUnit}|${cleanBranch}`;
+            const userFingerprint = `${cleanFullName}|${cleanUnit}`;
             const isDuplicate = realUsersSet.has(userFingerprint);
 
             if (!isDuplicate) {
                 realUsersSet.add(userFingerprint);
                 realStats[unit] = (realStats[unit] || 0) + 1;
-                saveRealData(realStats, realUsersSet);
+                totalSubmissionsCount = (totalSubmissionsCount || 0) + 1;
+                saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
                 renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
 
                 statusMsg.className = "status_msg success";
-                statusMsg.textContent = `✓ Cấp và tải giấy chứng nhận thành công! (+1 lượt tham gia cho ${unit})`;
+                statusMsg.textContent = `✓ Đã lưu ảnh thành công! (+1 lượt tham gia cho ${unit})`;
             } else {
                 statusMsg.className = "status_msg success";
-                statusMsg.textContent = "✓ Tải giấy chứng nhận thành công! (Lưu ý: Bạn đã hoàn thành trước đó nên hệ thống không tính thêm lượt trùng)";
+                statusMsg.textContent = "✓ Tải ảnh thành công! (Lưu ý: Bạn đã hoàn thành trước đó nên hệ thống không tính thêm lượt trùng)";
             }
 
             if (typeof confetti === "function") {
@@ -630,7 +979,7 @@ document.addEventListener("DOMContentLoaded", () => {
             statusMsg.className = "status_msg error";
             statusMsg.textContent = "Lỗi kết nối máy chủ. Vẫn đang tạo chứng nhận cho bạn...";
 
-            await generateAndDownloadCertificate(fullName, unit, youthUnionBranch);
+            await generateAndDownloadCertificate(fullName, unit);
         } finally {
             downloadBtn.disabled = false;
             btnSpinner.style.display = "none";
