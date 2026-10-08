@@ -946,15 +946,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const nameElem = document.getElementById("previewName");
         const unitElem = document.getElementById("previewUnit");
 
-        // Chuẩn theo tỷ lệ cqi từ CSS sang độ phân giải Canvas 2880px (2.45cqi = ~71px, 2.25cqi = ~65px)
-        let nameFontSize = Math.round(2880 * 0.0245);
+        // Chuẩn theo tỷ lệ cqi từ CSS sang độ phân giải Canvas 2880px (3.82cqi = ~110px, 2.25cqi = ~65px)
+        let nameFontSize = Math.round(2880 * 0.03819); // 110px
         let unitFontSize = Math.round(2880 * 0.0225);
 
         if (nameElem) {
             const computedName = parseFloat(window.getComputedStyle(nameElem).fontSize);
             if (computedName && !isNaN(computedName)) {
                 const scaled = Math.round(computedName * scale);
-                if (scaled >= 40 && scaled <= 95) {
+                if (scaled >= 40 && scaled <= 145) {
                     nameFontSize = scaled;
                 }
             }
