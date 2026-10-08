@@ -938,8 +938,37 @@ document.addEventListener("DOMContentLoaded", () => {
         const displayName = (fullName || "").trim().toUpperCase();
         const displayUnit = (unit || "").trim();
 
-        let nameFontSize = 50;
-        let unitFontSize = 46;
+        // Đồng bộ kích thước font chữ chính xác 100% từ giao diện xem trước trên web sang Canvas tải về
+        const cardElem = document.getElementById("certificatePreviewWrapper");
+        const cardWidth = cardElem && cardElem.clientWidth > 0 ? cardElem.clientWidth : 720;
+        const scale = 2880 / cardWidth;
+
+        const nameElem = document.getElementById("previewName");
+        const unitElem = document.getElementById("previewUnit");
+
+        // Chuẩn theo tỷ lệ cqi từ CSS sang độ phân giải Canvas 2880px (2.45cqi = ~71px, 2.25cqi = ~65px)
+        let nameFontSize = Math.round(2880 * 0.0245);
+        let unitFontSize = Math.round(2880 * 0.0225);
+
+        if (nameElem) {
+            const computedName = parseFloat(window.getComputedStyle(nameElem).fontSize);
+            if (computedName && !isNaN(computedName)) {
+                const scaled = Math.round(computedName * scale);
+                if (scaled >= 40 && scaled <= 95) {
+                    nameFontSize = scaled;
+                }
+            }
+        }
+
+        if (unitElem) {
+            const computedUnit = parseFloat(window.getComputedStyle(unitElem).fontSize);
+            if (computedUnit && !isNaN(computedUnit)) {
+                const scaled = Math.round(computedUnit * scale);
+                if (scaled >= 35 && scaled <= 85) {
+                    unitFontSize = scaled;
+                }
+            }
+        }
 
         // 1. Dòng Họ và Tên:
         ctx.font = `800 ${nameFontSize}px 'Montserrat', sans-serif`;
