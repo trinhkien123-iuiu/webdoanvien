@@ -489,18 +489,13 @@ document.addEventListener("DOMContentLoaded", () => {
             renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
         }
 
-        // 2. Chế độ 24h: Nếu không bấm làm mới cưỡng chế (force) và cache còn hiệu lực trong ngày hôm nay (chưa qua 24:00 đêm)
-        if (!force && lastSync && isCacheValidToday(lastSync)) {
-            return;
-        }
-
         if (refreshStatsBtn) refreshStatsBtn.classList.add("loading");
-        if (statsSyncTimeElem) statsSyncTimeElem.textContent = "Đang tải dữ liệu từ Google Sheet...";
+        if (statsSyncTimeElem) statsSyncTimeElem.textContent = "Đang kiểm tra dữ liệu từ Google Sheet...";
 
         let syncSuccess = false;
 
         try {
-            // 1. Thử lấy danh sách đơn vị mới nhất và thống kê từ Google Apps Script API
+            // 1. Luôn đồng bộ danh sách đơn vị mới nhất từ tab DanhSach_DonVi qua Google Apps Script
             try {
                 const apiRes = await fetch(API_ENDPOINT);
                 const apiJson = await apiRes.json();
@@ -512,19 +507,27 @@ document.addEventListener("DOMContentLoaded", () => {
                         populateUnitSelect(UNITS);
                     }
 
-                    if (apiJson.unit_counts) {
-                        UNITS.forEach((u) => {
-                            realStats[u] = apiJson.unit_counts[u] || 0;
-                        });
+                    // Chế độ 24h: Chỉ cập nhật số liệu thống kê nếu chưa có cache trong ngày hoặc đã qua 24:00 đêm (hoặc force)
+                    const needUpdateStats = force || !lastSync || !isCacheValidToday(lastSync);
+
+                    if (needUpdateStats) {
+                        if (apiJson.unit_counts) {
+                            UNITS.forEach((u) => {
+                                realStats[u] = apiJson.unit_counts[u] || 0;
+                            });
+                        }
+
+                        if (typeof apiJson.total_submissions === "number") {
+                            totalSubmissionsCount = apiJson.total_submissions;
+                        }
+
+                        saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
+                        localStorage.setItem(STATS_LAST_SYNC_KEY, String(now));
+                        updateSyncTimeDisplay(now);
+                    } else {
+                        updateSyncTimeDisplay(lastSync);
                     }
 
-                    if (typeof apiJson.total_submissions === "number") {
-                        totalSubmissionsCount = apiJson.total_submissions;
-                    }
-
-                    saveLocalCachedData(realStats, realUsersSet, totalSubmissionsCount);
-                    localStorage.setItem(STATS_LAST_SYNC_KEY, String(now));
-                    updateSyncTimeDisplay(now);
                     renderStatsTable(statsSearchInput ? statsSearchInput.value : "");
                     syncSuccess = true;
                 }
@@ -532,8 +535,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.warn("API Apps Script chưa phản hồi, thử tải qua GViz:", apiErr);
             }
 
-            // 2. Dự phòng: Nếu API chưa trả về, đọc trực tiếp từ Google Sheet qua GViz
-            if (!syncSuccess) {
+            // 2. Dự phòng: Nếu API chưa trả về và cần cập nhật số liệu thống kê 24h
+            const needUpdateStats = force || !lastSync || !isCacheValidToday(lastSync);
+            if (!syncSuccess && needUpdateStats) {
                 try {
                     const response = await fetch(SHEET_GVIZ_URL);
                     if (!response.ok) throw new Error("HTTP error: " + response.status);
