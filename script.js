@@ -342,14 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updateSyncTimeDisplay(timestamp) {
         if (!statsSyncTimeElem) return;
-        if (!timestamp) {
-            statsSyncTimeElem.textContent = "Hệ thống chốt và cập nhật số liệu vào 24h hàng ngày";
-            return;
-        }
-        const d = new Date(Number(timestamp));
-        const timeStr = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-        const dateStr = d.toLocaleDateString("vi-VN");
-        statsSyncTimeElem.textContent = `Hệ thống chốt và cập nhật số liệu vào 24h hàng ngày (Lần chốt gần nhất: ${timeStr} ${dateStr})`;
+        statsSyncTimeElem.textContent = "Bảng theo dõi số lượt tải chứng nhận thực tế (hệ thống tự động cập nhật vào 24h hàng ngày)";
     }
 
     function loadLocalCachedData() {
@@ -490,7 +483,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (refreshStatsBtn) refreshStatsBtn.classList.add("loading");
-        if (statsSyncTimeElem) statsSyncTimeElem.textContent = "Đang kiểm tra dữ liệu từ Google Sheet...";
 
         let syncSuccess = false;
 
