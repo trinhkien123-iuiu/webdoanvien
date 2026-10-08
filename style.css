@@ -25,9 +25,9 @@
 body {
     min-height: 100vh;
     background: radial-gradient(circle at 10% 10%, #DBEAFE 0%, transparent 40%),
-                radial-gradient(circle at 90% 20%, #EDE9FE 0%, transparent 45%),
-                radial-gradient(circle at 50% 90%, #E0F2FE 0%, transparent 50%),
-                linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+        radial-gradient(circle at 90% 20%, #EDE9FE 0%, transparent 45%),
+        radial-gradient(circle at 50% 90%, #E0F2FE 0%, transparent 50%),
+        linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
     background-attachment: fixed;
     color: var(--text-main);
     display: flex;
@@ -306,6 +306,7 @@ form {
         opacity: 0;
         transform: translateY(-4px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -426,7 +427,9 @@ form {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .status_msg {
@@ -436,8 +439,14 @@ form {
     min-height: 18px;
     line-height: 1.4;
 }
-.status_msg.success { color: #16A34A; }
-.status_msg.error { color: #DC2626; }
+
+.status_msg.success {
+    color: #16A34A;
+}
+
+.status_msg.error {
+    color: #DC2626;
+}
 
 .certificate_view_section {
     flex: 1 1 540px;
@@ -492,28 +501,30 @@ form {
     position: absolute;
     left: 35.4%;
     top: 28.2%;
-    width: 48%;
-    max-width: 55%;
+    width: auto;
+    max-width: none;
     height: 4.8%;
     display: flex;
     align-items: flex-end;
     gap: 8px;
     z-index: 2;
     user-select: none;
+    white-space: nowrap;
 }
 
 .banner_unit_line {
     position: absolute;
     left: 35.4%;
-    top: 36.5%;
-    width: 58%;
-    max-width: 60%;
-    height: 4.5%;
+    top: 36.2%;
+    width: auto;
+    max-width: none;
+    height: 5.2%;
     display: flex;
     align-items: flex-end;
     gap: 8px;
     z-index: 2;
     user-select: none;
+    white-space: nowrap;
 }
 
 .banner_label {
@@ -530,36 +541,34 @@ form {
 }
 
 .banner_unit_line .banner_label {
-    font-weight: 700;
-    font-size: clamp(7.5px, 1.45cqi, 28px);
+    font-weight: 800;
+    font-size: clamp(8px, 1.65cqi, 34px);
+    flex-shrink: 0;
+    margin-bottom: 2px;
 }
 
 .banner_val_name {
     font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     color: #FFE66D;
-    font-size: clamp(9px, 1.95cqi, 40px);
+    font-size: clamp(11px, 2.45cqi, 60px);
     letter-spacing: 0.5px;
     text-transform: uppercase;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
     line-height: 1.1;
     margin-bottom: 2px;
-    transition: font-size 0.15s ease;
 }
 
 .banner_val_unit {
     font-family: 'Montserrat', sans-serif;
-    font-weight: 700;
+    font-weight: 800;
     color: #FFFFFF;
-    font-size: clamp(7.5px, 1.35cqi, 26px);
+    font-size: clamp(10px, 2.25cqi, 50px);
     white-space: nowrap;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
     line-height: 1.1;
     margin-bottom: 2px;
-    transition: font-size 0.15s ease;
 }
 
 .stats_section {
@@ -823,8 +832,13 @@ form {
 }
 
 @keyframes spinRefresh {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .stats_table_wrapper {
@@ -999,8 +1013,15 @@ form {
 }
 
 @keyframes modalPop {
-    from { transform: scale(0.92); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    from {
+        transform: scale(0.92);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .crop_modal_header {
@@ -1073,12 +1094,14 @@ form {
     background: #FFFFFF;
 }
 
-.crop_tools, .crop_actions {
+.crop_tools,
+.crop_actions {
     display: flex;
     gap: 6px;
 }
 
-.btn_tool, .btn_secondary {
+.btn_tool,
+.btn_secondary {
     padding: 7px 11px;
     background: #F1F5F9;
     color: #334155;
@@ -1089,7 +1112,8 @@ form {
     cursor: pointer;
 }
 
-.btn_tool:hover, .btn_secondary:hover {
+.btn_tool:hover,
+.btn_secondary:hover {
     background: #E2E8F0;
 }
 
@@ -1110,6 +1134,7 @@ form {
         align-items: center;
         gap: 20px;
     }
+
     .input_form_card,
     .certificate_view_section {
         max-width: 100%;
@@ -1121,71 +1146,92 @@ form {
     body {
         padding: 12px 8px 36px;
     }
+
     .main_header {
         padding: 4px 6px;
         gap: 6px;
     }
+
     .header_title {
         font-size: 21px;
     }
+
     .header_subtitle {
         font-size: 12px;
     }
+
     .input_form_card {
         padding: 18px 14px;
         border-radius: 14px;
     }
+
     .form_input,
     .form_select,
     .form_textarea {
         font-size: 16px;
     }
+
     .certificate_preview_card {
         border-radius: 8px;
     }
+
     .stats_section {
         padding: 18px 12px;
         border-radius: 16px;
     }
+
     .stats_summary_grid {
         grid-template-columns: 1fr;
     }
+
     .stats_controls {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
     }
+
     .search_wrapper,
     .sort_wrapper,
     .stats_sort_select {
         max-width: 100%;
         width: 100%;
     }
+
     .stats_count_badge {
         text-align: center;
     }
-    .stats_table th, .stats_table td {
+
+    .stats_table th,
+    .stats_table td {
         padding: 8px 10px;
         font-size: 12.5px;
     }
+
     .col_stt {
         width: 45px;
     }
+
     .col_count {
         width: 95px;
     }
+
     .col_progress {
         display: none;
     }
+
     .crop_modal_footer {
         flex-direction: column;
         align-items: stretch;
     }
-    .crop_tools, .crop_actions {
+
+    .crop_tools,
+    .crop_actions {
         width: 100%;
         justify-content: space-between;
     }
-    .crop_tools button, .crop_actions button {
+
+    .crop_tools button,
+    .crop_actions button {
         flex: 1;
         text-align: center;
     }

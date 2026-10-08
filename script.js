@@ -243,26 +243,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!previewName) return;
         const name = (nameInput.value || "").trim().toUpperCase();
         previewName.textContent = name;
-        if (name.length > 26) {
-            previewName.style.fontSize = "clamp(7.5px, 1.4cqi, 28px)";
-        } else if (name.length > 18) {
-            previewName.style.fontSize = "clamp(8.5px, 1.7cqi, 34px)";
-        } else {
-            previewName.style.fontSize = "clamp(9px, 1.95cqi, 40px)";
-        }
+        previewName.style.fontSize = ""; // Cố định 50px từ CSS
     }
 
     function updatePreviewUnit() {
         if (!previewUnit) return;
         const u = (unitSelect.value || "").trim();
         previewUnit.textContent = u;
-        if (u.length > 40) {
-            previewUnit.style.fontSize = "clamp(6.5px, 1.15cqi, 22px)";
-        } else if (u.length > 28) {
-            previewUnit.style.fontSize = "clamp(7px, 1.25cqi, 24px)";
-        } else {
-            previewUnit.style.fontSize = "clamp(7.5px, 1.35cqi, 26px)";
-        }
+        previewUnit.style.fontSize = "";
     }
 
     nameInput.addEventListener("input", updatePreviewName);
@@ -616,15 +604,26 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Tự động làm mới khi người dùng quay lại tab trình duyệt
-    window.addEventListener("focus", () => {
+    // Tự động giải phóng hàng đợi khi có mạng lại
+    window.addEventListener("online", () => {
+        processPendingQueue();
         fetchStatsFromSheet(true);
     });
 
-    // Định kỳ tự động đồng bộ mỗi 30 giây
+    // Tự động làm mới và kiểm tra hàng đợi khi người dùng quay lại tab trình duyệt
+    window.addEventListener("focus", () => {
+        processPendingQueue();
+        fetchStatsFromSheet(true);
+    });
+
+    // Định kỳ tự động đồng bộ và gửi bù mỗi 30 giây
     setInterval(() => {
+        processPendingQueue();
         fetchStatsFromSheet(true);
     }, 30000);
+
+    // Kích hoạt kiểm tra hàng đợi ngay khi mở trang
+    processPendingQueue();
 
     if (statsSearchInput) {
         statsSearchInput.addEventListener("input", (e) => {
@@ -746,11 +745,46 @@ document.addEventListener("DOMContentLoaded", () => {
         closeModal();
     });
 
-    async function sendDataToDatabase(data) {
-        if (USE_MOCK_TEST) {
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            return { success: true, message: "Mock saved" };
+    const PENDING_SUBMISSIONS_KEY = "sheet_pending_submissions";
+    let isProcessingQueue = false;
+
+    function getPendingSubmissions() {
+        try {
+            const raw = localStorage.getItem(PENDING_SUBMISSIONS_KEY);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+            return [];
         }
+    }
+
+    function savePendingSubmissions(queue) {
+        try {
+            localStorage.setItem(PENDING_SUBMISSIONS_KEY, JSON.stringify(queue));
+        } catch (e) { }
+    }
+
+    function enqueueSubmission(data) {
+        const queue = getPendingSubmissions();
+        const fingerprint = `${(data.fullName || "").trim().toLowerCase()}|${(data.unit || "").trim().toLowerCase()}`;
+        const exists = queue.some((item) => {
+            const itemFp = `${(item.fullName || "").trim().toLowerCase()}|${(item.unit || "").trim().toLowerCase()}`;
+            return itemFp === fingerprint;
+        });
+
+        if (!exists) {
+            queue.push({
+                ...data,
+                id: Date.now() + "_" + Math.random().toString(36).substring(2, 7),
+                retryCount: 0,
+                createdAt: Date.now()
+            });
+            savePendingSubmissions(queue);
+        }
+    }
+
+    async function sendSinglePayload(data) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
 
         try {
             await fetch(API_ENDPOINT, {
@@ -759,12 +793,76 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: {
                     "Content-Type": "text/plain;charset=utf-8"
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
+            return true;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (navigator.sendBeacon) {
+                try {
+                    const blob = new Blob([JSON.stringify(data)], { type: "text/plain;charset=utf-8" });
+                    navigator.sendBeacon(API_ENDPOINT, blob);
+                } catch (bErr) { }
+            }
+            throw err;
+        }
+    }
+
+    async function processPendingQueue() {
+        if (isProcessingQueue || (typeof navigator !== "undefined" && !navigator.onLine)) return;
+        const queue = getPendingSubmissions();
+        if (queue.length === 0) return;
+
+        isProcessingQueue = true;
+        const remaining = [];
+
+        for (const item of queue) {
+            try {
+                await sendSinglePayload(item);
+            } catch (err) {
+                console.warn(`[Queue] Nghẽn mạng, lượt gửi lần ${item.retryCount + 1} sẽ gửi bù sau:`, err);
+                item.retryCount = (item.retryCount || 0) + 1;
+                remaining.push(item);
+            }
+            await new Promise((r) => setTimeout(r, 400));
+        }
+
+        savePendingSubmissions(remaining);
+        isProcessingQueue = false;
+
+        if (remaining.length < queue.length) {
+            setTimeout(() => fetchStatsFromSheet(true), 1500);
+        }
+    }
+
+    async function sendDataToDatabase(data) {
+        if (USE_MOCK_TEST) {
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            return { success: true, message: "Mock saved" };
+        }
+
+        // 1. Lưu ngay vào hàng đợi cục bộ (Write-Ahead Log) trước để bảo đảm không bao giờ mất
+        enqueueSubmission(data);
+
+        // 2. Thử gửi ngay lập tức
+        try {
+            await sendSinglePayload(data);
+            // Gửi thành công: loại bỏ khỏi hàng đợi
+            const queue = getPendingSubmissions().filter((item) => {
+                const itemFp = `${(item.fullName || "").trim().toLowerCase()}|${(item.unit || "").trim().toLowerCase()}`;
+                const dataFp = `${(data.fullName || "").trim().toLowerCase()}|${(data.unit || "").trim().toLowerCase()}`;
+                return itemFp !== dataFp;
+            });
+            savePendingSubmissions(queue);
             return { success: true };
         } catch (err) {
-            console.warn("Gửi dữ liệu Google Apps Script thất bại:", err);
-            return { success: false, error: err };
+            console.warn("Hệ thống đang nghẽn hoặc mạng yếu, dữ liệu đã được bảo toàn an toàn trong hàng đợi và sẽ tự động gửi bù:", err);
+            // Kích hoạt tự động thử lại sau 2.5s và 7s
+            setTimeout(processPendingQueue, 2500);
+            setTimeout(processPendingQueue, 7000);
+            return { success: false, queued: true, error: err };
         }
     }
 
@@ -838,52 +936,35 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.shadowOffsetY = 2;
 
         const displayName = (fullName || "").trim().toUpperCase();
-        let nameFontSize = 52;
-        if (displayName.length > 26) {
-            nameFontSize = 38;
-        } else if (displayName.length > 18) {
-            nameFontSize = 44;
-        }
+        const displayUnit = (unit || "").trim();
 
+        let nameFontSize = 50;
+        let unitFontSize = 46;
+
+        // 1. Dòng Họ và Tên:
         ctx.font = `800 ${nameFontSize}px 'Montserrat', sans-serif`;
-        const maxLineWidth = 980;
-        while ((ctx.measureText("ĐỒNG CHÍ: ").width + ctx.measureText(displayName).width > maxLineWidth) && nameFontSize > 26) {
+        const maxNameWidth = 1650;
+        while (ctx.measureText(displayName).width > maxNameWidth && nameFontSize > 28) {
             nameFontSize -= 1;
             ctx.font = `800 ${nameFontSize}px 'Montserrat', sans-serif`;
         }
-
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("ĐỒNG CHÍ: ", 1020, 520);
-        const nameLabelWidth = ctx.measureText("ĐỒNG CHÍ: ").width;
-
         ctx.fillStyle = "#FFE66D";
-        ctx.fillText(displayName, 1020 + nameLabelWidth, 520);
+        ctx.fillText(displayName, 1020, 520);
 
         ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
         ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 2;
 
-        const displayUnit = (unit || "").trim();
-        let unitFontSize = 38;
-        if (displayUnit.length > 40) {
-            unitFontSize = 32;
-        } else if (displayUnit.length > 28) {
-            unitFontSize = 35;
-        }
-
-        ctx.font = `700 ${unitFontSize}px 'Montserrat', sans-serif`;
-        const maxUnitLineWidth = 1500;
-        while ((ctx.measureText("ĐƠN VỊ: ").width + ctx.measureText(displayUnit).width > maxUnitLineWidth) && unitFontSize > 20) {
+        // 2. Dòng Đơn vị:
+        ctx.font = `800 ${unitFontSize}px 'Montserrat', sans-serif`;
+        const maxUnitWidth = 1650;
+        while (ctx.measureText(displayUnit).width > maxUnitWidth && unitFontSize > 24) {
             unitFontSize -= 1;
-            ctx.font = `700 ${unitFontSize}px 'Montserrat', sans-serif`;
+            ctx.font = `800 ${unitFontSize}px 'Montserrat', sans-serif`;
         }
-
         ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("ĐƠN VỊ: ", 1020, 650);
-        const unitLabelWidth = ctx.measureText("ĐƠN VỊ: ").width;
-
-        ctx.fillText(displayUnit, 1020 + unitLabelWidth, 650);
+        ctx.fillText(displayUnit, 1020, 650);
         ctx.shadowColor = "transparent";
 
         exportCanvas.toBlob((blob) => {
@@ -986,8 +1067,14 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             console.error(error);
-            statusMsg.className = "status_msg error";
-            statusMsg.textContent = "Lỗi kết nối máy chủ. Vẫn đang tạo chứng nhận cho bạn...";
+            enqueueSubmission({
+                savedAt: new Date().toLocaleString("vi-VN"),
+                fullName: fullName,
+                unit: unit,
+                avatarStatus: userCroppedImage ? "Đã tải ảnh" : "Chưa tải ảnh"
+            });
+            statusMsg.className = "status_msg success";
+            statusMsg.textContent = "✓ Tải ảnh thành công! Thông tin của bạn đã được lưu và đang tự động đồng bộ vào hệ thống.";
 
             await generateAndDownloadCertificate(fullName, unit);
         } finally {
